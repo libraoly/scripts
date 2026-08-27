@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { executeTask, formatDuration, logger, createLogger } from '../src/index.js'
+import {
+  executeTask,
+  formatDuration,
+  logger,
+  createLogger,
+  runExample,
+} from '../src/index.js'
 
 describe('formatDuration', () => {
   it('应当正确格式化小于 1 秒的毫秒数', () => {
@@ -54,5 +60,12 @@ describe('logger', () => {
     const subLogger = createLogger('sub-module')
     expect(subLogger).toBeDefined()
     expect(typeof subLogger.info).toBe('function')
+  })
+})
+
+describe('scripts exports', () => {
+  it('应当能正常调用导出的 script 方法', async () => {
+    const res = await runExample()
+    expect(res).toEqual({ success: true })
   })
 })
