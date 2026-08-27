@@ -1,4 +1,4 @@
-import type { TaskOptions, TaskResult } from '../types/index.js'
+import type { TaskOptions, TaskResult } from '../types'
 
 /**
  * 执行指定任务并返回结构化执行结果

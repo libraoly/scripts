@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
-import { executeTask } from '../core/task.js'
-import { formatDuration } from '../utils/format.js'
-import { createLogger, logger } from '../utils/logger.js'
+import { executeTask } from '../core/task'
+import { formatDuration } from '../utils/format'
+import { createLogger, logger } from '../utils/logger'
 
 const scriptLogger = createLogger('example')
 

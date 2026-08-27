@@ -1,11 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import {
-  executeTask,
-  formatDuration,
-  logger,
-  createLogger,
-  runExample,
-} from '../src/index.js'
+import { runExample } from '../src/index'
+import { executeTask } from '../src/core/task'
+import { formatDuration } from '../src/utils/format'
+import { createLogger, logger } from '../src/utils/logger'
 
 describe('formatDuration', () => {
   it('应当正确格式化小于 1 秒的毫秒数', () => {
@@ -64,7 +61,7 @@ describe('logger', () => {
 })
 
 describe('scripts exports', () => {
-  it('应当能正常调用导出的 script 方法', async () => {
+  it('应当能正常调用从主包导出的 script 方法', async () => {
     const res = await runExample()
     expect(res).toEqual({ success: true })
   })

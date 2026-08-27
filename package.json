@@ -16,14 +16,6 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     },
-    "./scripts": {
-      "types": "./dist/scripts/index.d.mts",
-      "import": "./dist/scripts/index.mjs"
-    },
-    "./scripts/*": {
-      "types": "./dist/scripts/*.d.mts",
-      "import": "./dist/scripts/*.mjs"
-    },
     "./*": {
       "types": "./dist/*.d.mts",
       "import": "./dist/*.mjs"

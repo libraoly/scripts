@@ -1,5 +1,1 @@
-export * from './types/index.js'
-export * from './utils/format.js'
-export * from './utils/logger.js'
-export * from './core/task.js'
-export * from './scripts/index.js'
+export * from './scripts/example'

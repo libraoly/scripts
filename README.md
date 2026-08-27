@@ -135,17 +135,14 @@ if (result.status === 'success') {
 
 ### 3. 被其他 Node 项目作为库引入 (Import from Other Projects)
 
-本仓库构建产物包含完整的 `.mjs` 与 `.d.mts` 声明，支持主包导入或精准子路径导入：
+本仓库构建产物包含完整的 `.mjs` 与 `.d.mts` 声明，外部项目无需添加 `/scripts/` 前缀即可直接导入：
 
 ```ts
-// 1. 从主包直接引入核心工具、执行器与脚本
-import { executeTask, logger, runExample } from 'scripts'
+// 1. 从主包直接引入所有导出的脚本
+import { runExample } from 'scripts'
 
-// 2. 精准引入 scripts 命名空间
-import { runExample } from 'scripts/scripts'
-
-// 3. 按需独立引入特定脚本
-import { runExample } from 'scripts/scripts/example'
+// 2. 按需独立引入特定脚本 (扁平化子路径，直接映射到对应脚本产物)
+import { runExample } from 'scripts/example'
 ```
 
 ---
