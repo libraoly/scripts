@@ -65,4 +65,24 @@ describe('scripts exports', () => {
     const res = await runExample()
     expect(res).toEqual({ success: true })
   })
+
+  it('应当能从主包导出 balance 相关方法与 env 工具', async () => {
+    const {
+      fetchBalance,
+      getElectricityBalance,
+      getWaterBalance,
+      runBalanceCheck,
+      getEnv,
+      getRequiredEnv,
+    } = await import('../src/index')
+    expect(typeof fetchBalance).toBe('function')
+    expect(typeof getElectricityBalance).toBe('function')
+    expect(typeof getWaterBalance).toBe('function')
+    expect(typeof runBalanceCheck).toBe('function')
+    expect(typeof getEnv).toBe('function')
+    expect(typeof getRequiredEnv).toBe('function')
+  })
 })
+
+
+

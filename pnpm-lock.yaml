@@ -11,6 +11,12 @@ importers:
       consola:
         specifier: ^3.4.2
         version: 3.4.2
+      ky:
+        specifier: ^2.0.2
+        version: 2.0.2
+      std-env:
+        specifier: ^4.2.0
+        version: 4.2.0
     devDependencies:
       '@types/node':
         specifier: ^26.4.0
@@ -821,6 +827,10 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
+  ky@2.0.2:
+    resolution: {integrity: sha512-/GmXpo9F9W+f8n4Ivr2iH+7h7wL7jLbLKWkMlpflcCRb6kGjBfTlASEXaZ9qUgNTn4VgS0P2pwxxzQ4EM6Ulgg==}
+    engines: {node: '>=22'}
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -1538,6 +1548,8 @@ snapshots:
 
   jiti@2.7.0:
     optional: true
+
+  ky@2.0.2: {}
 
   magic-string@0.30.21:
     dependencies:

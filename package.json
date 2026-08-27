@@ -34,7 +34,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "consola": "^3.4.2"
+    "consola": "^3.4.2",
+    "ky": "^2.0.2",
+    "std-env": "^4.2.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
