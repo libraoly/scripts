@@ -27,6 +27,7 @@
   "scripts": {
     "dev": "tsdown --watch",
     "build": "tsdown",
+    "prepare": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
