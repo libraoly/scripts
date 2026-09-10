@@ -3,7 +3,7 @@
 > **基于现代工具链（tsdown）构建的高性能、支持按需加载的 TypeScript 自动化任务库。**
 
 [![Node Version](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org/)
-[![pnpm](https://img.shields.io/badge/pnpm-%5E11.22.0-orange.svg)](https://pnpm.io/)
+[![pnpm](https://img.shields.io/badge/pnpm-%5E12.3.4-orange.svg)](https://pnpm.io/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5%2B-blue.svg)](https://www.typescriptlang.org/)
 [![Built with tsdown](https://img.shields.io/badge/built%20with-tsdown-purple.svg)](https://github.com/sxzz/tsdown)
 [![Lint & Format](https://img.shields.io/badge/oxc-oxlint%20%26%20oxfmt-red.svg)](https://oxc.rs/)
@@ -75,7 +75,7 @@ scripts/
 
 ### 1. 环境要求
 - **Node.js**: `>= 24.0.0`
-- **Package Manager**: [pnpm](https://pnpm.io/) `>= 11.22.0`
+- **Package Manager**: [pnpm](https://pnpm.io/) `>= 12.3.4`
 
 ### 2. 安装依赖
 ```bash

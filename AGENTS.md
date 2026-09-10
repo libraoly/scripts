@@ -21,7 +21,7 @@
 | 类别 | 选用技术 / 规范 | 核心规则与注意事项 |
 | :--- | :--- | :--- |
 | **Node.js** | `>= 24.0.0` | 利用现代 Node 原生特性（原生 `URLSearchParams`、Subpath Imports `#*`）。 |
-| **包管理器** | `pnpm >= 11.22.0` | 锁定文件为 `pnpm-lock.yaml`，请勿使用 npm 或 yarn。 |
+| **包管理器** | `pnpm >= 12.3.4` | 锁定文件为 `pnpm-lock.yaml`，请勿使用 npm 或 yarn。 |
 | **构建打包** | `tsdown` | 配置文件为 `tsdown.config.ts`。打包目标输出至 `dist/`，必须支持 ESM (`.mjs`) 与 CJS (`.cjs`)。 |
 | **静态检查** | `oxlint` (`.oxlintrc.json`) | **禁止使用 ESLint**。检查命令为 `pnpm run lint`，修复命令为 `pnpm run lint:fix`。 |
 | **代码格式化** | `oxfmt` (`.oxfmtrc.json`) | **禁止使用 Prettier**。单引号、无分号、最大行宽 120 字符。命令：`pnpm run fmt`。 |
