@@ -53,12 +53,20 @@ describe('E2E: Built Bundle & Subprocess Execution', () => {
     it('should export runBalanceCheck from root ESM entry', async () => {
       const indexMjs = await import('../../dist/index.mjs')
       expect(typeof indexMjs.runBalanceCheck).toBe('function')
+      // 验证 core 基础设施严禁对外导出
+      expect((indexMjs as Record<string, unknown>).sendToBark).toBeUndefined()
+      expect((indexMjs as Record<string, unknown>).httpClient).toBeUndefined()
+      expect((indexMjs as Record<string, unknown>).useEnv).toBeUndefined()
     })
 
     it('should export runBalanceCheck from root CJS entry', () => {
       const indexPath = resolve(import.meta.dirname, '../../dist/index.cjs')
       const indexCjs = nodeRequire(indexPath)
       expect(typeof indexCjs.runBalanceCheck).toBe('function')
+      // 验证 core 基础设施严禁对外导出
+      expect(indexCjs.sendToBark).toBeUndefined()
+      expect(indexCjs.httpClient).toBeUndefined()
+      expect(indexCjs.useEnv).toBeUndefined()
     })
   })
 
