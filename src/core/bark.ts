@@ -3,6 +3,7 @@ import { useEnv } from '#core/env'
 
 export const BARK_API_BASE_ENV_NAME = 'BARK_API_BASE'
 export const BARK_DEVICE_KEY_ENV_NAME = 'BARK_DEVICE_KEY'
+export const BARK_DEVICE_KEYS_ENV_NAME = 'BARK_DEVICE_KEYS'
 export const DEFAULT_BARK_API_BASE = 'https://api.day.app'
 
 export type BarkInterruptionLevel = 'critical' | 'active' | 'timeSensitive' | 'passive'
@@ -63,10 +64,12 @@ export interface BarkResponse {
 }
 
 export interface BarkOptions {
-  /** 自定义 Bark 服务基础地址或包含 key 的完整推送地址（优先级高于环境变量 BARK_API_BASE） */
+  /** 自定义 Bark 服务 Host 基础地址（优先级高于环境变量 BARK_API_BASE，默认为 https://api.day.app） */
   apiBase?: string
-  /** 设备 Key（优先级高于环境变量 BARK_DEVICE_KEY） */
-  deviceKey?: string
+  /** 单个设备 Key 或多个设备 Key 列表（优先级高于环境变量） */
+  deviceKey?: string | string[]
+  /** 多个设备 Key 列表，用于批量推送（优先级高于环境变量） */
+  deviceKeys?: string[]
   /** 请求超时时间（毫秒） */
   timeout?: number
   /** 自定义通用 HTTP 客户端 */
@@ -80,46 +83,98 @@ export interface BarkClient {
 }
 
 /**
- * 根据传入参数和环境变量解析最终请求 URL 及 JSON Payload
+ * 将入参规整解析为非空字符串 Key 数组
+ */
+function parseKeys(input: unknown): string[] {
+  if (!input) {
+    return []
+  }
+  if (Array.isArray(input)) {
+    return input.flatMap((item) => parseKeys(item))
+  }
+  if (typeof input === 'string') {
+    return input
+      .split(',')
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0)
+  }
+  return [String(input).trim()].filter((k) => k.length > 0)
+}
+
+/**
+ * 提取所有来源的 Device Keys 并去重
+ */
+function extractDeviceKeys(payload: BarkPayload, options?: BarkOptions): string[] {
+  const explicitKeys: string[] = [
+    ...parseKeys(options?.deviceKeys),
+    ...parseKeys(options?.deviceKey),
+    ...parseKeys(payload.device_keys),
+    ...parseKeys(payload.device_key),
+  ]
+
+  if (explicitKeys.length > 0) {
+    return Array.from(new Set(explicitKeys))
+  }
+
+  const envKeys: string[] = [
+    ...parseKeys(useEnv<string | string[]>(BARK_DEVICE_KEYS_ENV_NAME, '')),
+    ...parseKeys(useEnv<string | string[]>(BARK_DEVICE_KEY_ENV_NAME, '')),
+  ]
+
+  return Array.from(new Set(envKeys))
+}
+
+/**
+ * 规整 Host 基础地址（仅定义 Host，去除末尾斜杠及误传的 /push）
+ */
+function normalizeHost(base: string): string {
+  let host = base.replace(/\/+$/, '')
+  if (host.endsWith('/push')) {
+    host = host.slice(0, -5).replace(/\/+$/, '')
+  }
+  try {
+    new URL(host)
+  } catch {
+    throw new Error(`[sendToBark] Invalid base host URL: "${base}"`)
+  }
+  return host
+}
+
+/**
+ * 根据 Host 与 Device Key 数量决策最终请求 URL 及 JSON Payload
+ * - 单个 key: 使用完整 url (例如: https://api.day.app/:device_key)
+ * - 多个 key: 使用 push 批量推送端点 (例如: https://api.day.app/push)
  */
 function resolveEndpoint(
   base: string,
   payload: BarkPayload,
-  deviceKey?: string,
+  keys: string[],
 ): { targetUrl: string; finalPayload: BarkPayload } {
-  const normalizedBase = base.replace(/\/+$/, '')
-  let parsedUrl: URL
-  try {
-    parsedUrl = new URL(normalizedBase)
-  } catch {
-    throw new Error(`[sendToBark] Invalid base URL: "${base}"`)
-  }
-
+  const host = normalizeHost(base)
   const finalPayload: BarkPayload = { ...payload }
 
-  // 批量推送必须走 /push 端点
-  if (finalPayload.device_keys && finalPayload.device_keys.length > 0) {
-    const targetUrl = normalizedBase.endsWith('/push') ? normalizedBase : `${normalizedBase}/push`
-    return { targetUrl, finalPayload }
+  if (keys.length === 0) {
+    throw new Error(
+      '[sendToBark] Missing device_key. Please provide device_key in payload, options, or BARK_DEVICE_KEY environment variable.',
+    )
   }
 
-  const pathname = parsedUrl.pathname.replace(/\/+$/, '')
-  const isRootOrPush = pathname === '' || pathname === '/' || pathname === '/push'
-
-  if (isRootOrPush) {
-    const key = finalPayload.device_key || deviceKey
-    if (!key) {
-      throw new Error(
-        '[sendToBark] Missing device_key. Please provide device_key in payload, options, BARK_DEVICE_KEY env, or configure BARK_API_BASE with a key path.',
-      )
+  // 单个 key 时使用完整 url
+  if (keys.length === 1) {
+    const key = keys[0]!
+    delete finalPayload.device_key
+    delete finalPayload.device_keys
+    return {
+      targetUrl: `${host}/${key}`,
+      finalPayload,
     }
-    finalPayload.device_key = key
-    const targetUrl = normalizedBase.endsWith('/push') ? normalizedBase : `${normalizedBase}/push`
-    return { targetUrl, finalPayload }
   }
 
+  // 多个 key 时走 /push 批量推送端点
+  delete finalPayload.device_key
+  finalPayload.device_keys = keys
   return {
-    targetUrl: normalizedBase,
+    targetUrl: `${host}/push`,
     finalPayload,
   }
 }
@@ -150,12 +205,10 @@ export async function sendToBark(payloadOrBody: string | BarkPayload, options?: 
 
 export async function sendToBark(payloadOrBody: string | BarkPayload, options?: BarkOptions): Promise<BarkResponse> {
   const base = options?.apiBase ?? useEnv<string>(BARK_API_BASE_ENV_NAME, DEFAULT_BARK_API_BASE)
-  const envDeviceKey = useEnv<string>(BARK_DEVICE_KEY_ENV_NAME, '')
-  const deviceKey = options?.deviceKey || envDeviceKey
-
   const rawPayload: BarkPayload = typeof payloadOrBody === 'string' ? { body: payloadOrBody } : { ...payloadOrBody }
+  const keys = extractDeviceKeys(rawPayload, options)
 
-  const { targetUrl, finalPayload } = resolveEndpoint(base, rawPayload, deviceKey)
+  const { targetUrl, finalPayload } = resolveEndpoint(base, rawPayload, keys)
 
   const client = options?.client ?? httpClient
 

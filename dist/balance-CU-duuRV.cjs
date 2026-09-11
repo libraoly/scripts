@@ -126,42 +126,72 @@ function useEnv(key, fallback = void 0) {
 	return (0, destr.destr)(rawValue);
 }
 const BARK_DEVICE_KEY_ENV_NAME = "BARK_DEVICE_KEY";
+const BARK_DEVICE_KEYS_ENV_NAME = "BARK_DEVICE_KEYS";
 /**
-* 根据传入参数和环境变量解析最终请求 URL 及 JSON Payload
+* 将入参规整解析为非空字符串 Key 数组
 */
-function resolveEndpoint(base, payload, deviceKey) {
-	const normalizedBase = base.replace(/\/+$/, "");
-	let parsedUrl;
+function parseKeys(input) {
+	if (!input) return [];
+	if (Array.isArray(input)) return input.flatMap((item) => parseKeys(item));
+	if (typeof input === "string") return input.split(",").map((k) => k.trim()).filter((k) => k.length > 0);
+	return [String(input).trim()].filter((k) => k.length > 0);
+}
+/**
+* 提取所有来源的 Device Keys 并去重
+*/
+function extractDeviceKeys(payload, options) {
+	const explicitKeys = [
+		...parseKeys(options?.deviceKeys),
+		...parseKeys(options?.deviceKey),
+		...parseKeys(payload.device_keys),
+		...parseKeys(payload.device_key)
+	];
+	if (explicitKeys.length > 0) return Array.from(new Set(explicitKeys));
+	const envKeys = [...parseKeys(useEnv(BARK_DEVICE_KEYS_ENV_NAME, "")), ...parseKeys(useEnv(BARK_DEVICE_KEY_ENV_NAME, ""))];
+	return Array.from(new Set(envKeys));
+}
+/**
+* 规整 Host 基础地址（仅定义 Host，去除末尾斜杠及误传的 /push）
+*/
+function normalizeHost(base) {
+	let host = base.replace(/\/+$/, "");
+	if (host.endsWith("/push")) host = host.slice(0, -5).replace(/\/+$/, "");
 	try {
-		parsedUrl = new URL(normalizedBase);
+		new URL(host);
 	} catch {
-		throw new Error(`[sendToBark] Invalid base URL: "${base}"`);
+		throw new Error(`[sendToBark] Invalid base host URL: "${base}"`);
 	}
+	return host;
+}
+/**
+* 根据 Host 与 Device Key 数量决策最终请求 URL 及 JSON Payload
+* - 单个 key: 使用完整 url (例如: https://api.day.app/:device_key)
+* - 多个 key: 使用 push 批量推送端点 (例如: https://api.day.app/push)
+*/
+function resolveEndpoint(base, payload, keys) {
+	const host = normalizeHost(base);
 	const finalPayload = { ...payload };
-	if (finalPayload.device_keys && finalPayload.device_keys.length > 0) return {
-		targetUrl: normalizedBase.endsWith("/push") ? normalizedBase : `${normalizedBase}/push`,
-		finalPayload
-	};
-	const pathname = parsedUrl.pathname.replace(/\/+$/, "");
-	if (pathname === "" || pathname === "/" || pathname === "/push") {
-		const key = finalPayload.device_key || deviceKey;
-		if (!key) throw new Error("[sendToBark] Missing device_key. Please provide device_key in payload, options, BARK_DEVICE_KEY env, or configure BARK_API_BASE with a key path.");
-		finalPayload.device_key = key;
+	if (keys.length === 0) throw new Error("[sendToBark] Missing device_key. Please provide device_key in payload, options, or BARK_DEVICE_KEY environment variable.");
+	if (keys.length === 1) {
+		const key = keys[0];
+		delete finalPayload.device_key;
+		delete finalPayload.device_keys;
 		return {
-			targetUrl: normalizedBase.endsWith("/push") ? normalizedBase : `${normalizedBase}/push`,
+			targetUrl: `${host}/${key}`,
 			finalPayload
 		};
 	}
+	delete finalPayload.device_key;
+	finalPayload.device_keys = keys;
 	return {
-		targetUrl: normalizedBase,
+		targetUrl: `${host}/push`,
 		finalPayload
 	};
 }
 async function sendToBark(payloadOrBody, options) {
 	const base = options?.apiBase ?? useEnv("BARK_API_BASE", "https://api.day.app");
-	const envDeviceKey = useEnv(BARK_DEVICE_KEY_ENV_NAME, "");
-	const deviceKey = options?.deviceKey || envDeviceKey;
-	const { targetUrl, finalPayload } = resolveEndpoint(base, typeof payloadOrBody === "string" ? { body: payloadOrBody } : { ...payloadOrBody }, deviceKey);
+	const rawPayload = typeof payloadOrBody === "string" ? { body: payloadOrBody } : { ...payloadOrBody };
+	const { targetUrl, finalPayload } = resolveEndpoint(base, rawPayload, extractDeviceKeys(rawPayload, options));
 	const result = await (options?.client ?? httpClient).post(targetUrl, {
 		json: finalPayload,
 		timeout: options?.timeout,
