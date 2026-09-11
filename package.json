@@ -44,8 +44,7 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check",
-    "prepare": "npx tsdown"
+    "fmt:check": "oxfmt --check"
   },
   "dependencies": {
     "consola": "^3.4.2",
