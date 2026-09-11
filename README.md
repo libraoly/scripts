@@ -16,6 +16,7 @@
 本项目是一个由作者个人维护并日常使用的自动化脚本与任务工具库（Personal Scripts & Automation Toolkit）。
 
 主要用于解决日常生活中的自动化任务（如**物业水电费余额定时巡检**、**Bark 手机推送通知**等）。虽然主要用途为个人脚本，但全套代码均按照**生产级开源类库**的工程规范进行设计与实现：
+
 - 采用现代 ESM-first 规范并向下兼容 CommonJS；
 - 提供极致的按需加载与 Tree-shaking 支持；
 - 具备强健的错误重试、退避机制与高覆盖率单元测试。
@@ -56,11 +57,16 @@ scripts/
 │   │       ├── water.ts         # 水费余额便捷查询
 │   │       └── index.ts         # 批量巡检任务编排与通知推送
 │   └── index.ts                 # 统一顶层导出入口
-├── tests/                       # 单元测试用例
-│   ├── utils.test.ts
-│   ├── client.test.ts
-│   ├── bark.test.ts
-│   └── balance.test.ts
+├── test/                        # 测试套件（Vitest Projects 架构）
+│   ├── unit/                    # 单元测试（Mock 隔离、零网络依赖）
+│   │   ├── utils.test.ts
+│   │   ├── client.test.ts
+│   │   ├── bark.test.ts
+│   │   └── balance.test.ts
+│   └── e2e/                     # 端到端测试（真实运行、真实服务与产物验证）
+│       ├── balance.test.ts
+│       ├── bundle.test.ts
+│       └── helpers.ts
 ├── tsdown.config.ts             # 打包构建配置
 ├── vitest.config.ts             # 单元测试配置
 ├── .oxlintrc.json               # Oxc Lint 代码检查配置
@@ -74,21 +80,26 @@ scripts/
 ## 🚀 快速上手 (Quick Start)
 
 ### 1. 环境要求
+
 - **Node.js**: `>= 24.0.0`
 - **Package Manager**: [pnpm](https://pnpm.io/) `>= 12.3.4`
 
 ### 2. 安装依赖
+
 ```bash
 pnpm install
 ```
 
 ### 3. 配置环境变量
+
 复制根目录的 `.env.example` 为 `.env` 并填入实际参数：
+
 ```bash
 cp .env.example .env
 ```
 
 配置字段示例：
+
 ```ini
 # 电费账号配置
 ELECTRICITY_CARNO=你的电费卡号或户号
@@ -108,6 +119,7 @@ BARK_DEVICE_KEY=你的Bark设备Key
 ## 💡 代码使用示例 (Usage Examples)
 
 ### 1. 运行水电费余额批量巡检与通知
+
 ```typescript
 import { runBalanceCheck } from 'scripts/balance'
 
@@ -124,6 +136,7 @@ console.log('巡检结果:', result)
 ```
 
 ### 2. 独立查询电费或水费
+
 ```typescript
 import { getElectricityBalance, getWaterBalance } from 'scripts/balance'
 
@@ -140,6 +153,7 @@ console.log(`当前水费余额: ${water} 元`)
 ```
 
 ### 3. 发送 Bark 手机推送通知
+
 ```typescript
 import { sendToBark, createBarkClient } from 'scripts'
 
@@ -165,6 +179,7 @@ await bark.send('自定义实例消息')
 ```
 
 ### 4. 使用通用 HTTP 客户端
+
 ```typescript
 import { httpClient, createHttpClient } from 'scripts'
 
@@ -182,21 +197,24 @@ const postRes = await httpClient.postForm('https://api.example.com/form', {
 
 ## 🔨 开发与维护命令 (Scripts)
 
-| 命令 | 说明 |
-| :--- | :--- |
-| `pnpm run build` | 使用 `tsdown` 进行双格式编译打包 |
+| 命令                 | 说明                                          |
+| :------------------- | :-------------------------------------------- |
+| `pnpm run build`     | 使用 `tsdown` 进行双格式编译打包              |
 | `pnpm run typecheck` | 运行 TypeScript 严格类型检查 (`tsc --noEmit`) |
-| `pnpm run test` | 运行 Vitest 单元测试套件 |
-| `pnpm run lint` | 使用 `oxlint` 进行极速代码静态分析 |
-| `pnpm run lint:fix` | 自动修复可自动解决的 lint 警告/错误 |
-| `pnpm run fmt:check` | 使用 `oxfmt` 校验代码格式 |
-| `pnpm run fmt` | 使用 `oxfmt` 格式化所有代码文件 |
+| `pnpm run test`      | 运行 Vitest 全量测试套件（Unit + E2E）        |
+| `pnpm run test:unit` | 仅运行 Vitest 单元测试套件 (`--project unit`) |
+| `pnpm run test:e2e`  | 仅运行 Vitest E2E 测试套件 (`--project e2e`)  |
+| `pnpm run lint`      | 使用 `oxlint` 进行极速代码静态分析            |
+| `pnpm run lint:fix`  | 自动修复可自动解决的 lint 警告/错误           |
+| `pnpm run fmt:check` | 使用 `oxfmt` 校验代码格式                     |
+| `pnpm run fmt`       | 使用 `oxfmt` 格式化所有代码文件               |
 
 ---
 
 ## 🤝 参与与贡献 (Contributing)
 
 虽然本项目是以作者个人日常生活自动化为出发点构建的，但也非常欢迎任何形式的交流与共建！
+
 - **遇到 Bug 或建议**：欢迎提交 [Issue](https://github.com/libraoly/scripts/issues)。
 - **贡献代码**：欢迎提出 [Pull Request](https://github.com/libraoly/scripts/pulls)。提交前请确保运行并通过 `pnpm run typecheck && pnpm run lint && pnpm run fmt:check && pnpm test`。
 - **添加新任务**：可参考 `src/tasks/balance` 的设计，在 `src/tasks/` 下新增任务模块，并在 `package.json` 与 `tsdown.config.ts` 中配置相应的子路径导出。

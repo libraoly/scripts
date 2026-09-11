@@ -18,14 +18,14 @@
 
 ## 🛠️ 技术栈与工具链规范
 
-| 类别 | 选用技术 / 规范 | 核心规则与注意事项 |
-| :--- | :--- | :--- |
-| **Node.js** | `>= 24.0.0` | 利用现代 Node 原生特性（原生 `URLSearchParams`、Subpath Imports `#*`）。 |
-| **包管理器** | `pnpm >= 12.3.4` | 锁定文件为 `pnpm-lock.yaml`，请勿使用 npm 或 yarn。 |
-| **构建打包** | `tsdown` | 配置文件为 `tsdown.config.ts`。打包目标输出至 `dist/`，必须支持 ESM (`.mjs`) 与 CJS (`.cjs`)。 |
-| **静态检查** | `oxlint` (`.oxlintrc.json`) | **禁止使用 ESLint**。检查命令为 `pnpm run lint`，修复命令为 `pnpm run lint:fix`。 |
-| **代码格式化** | `oxfmt` (`.oxfmtrc.json`) | **禁止使用 Prettier**。单引号、无分号、最大行宽 120 字符。命令：`pnpm run fmt`。 |
-| **测试框架** | `vitest` (`vitest.config.ts`) | 支持针对定时器使用 `vi.useFakeTimers()`，网络 Mock 使用 `vi.spyOn` 或参数注入。 |
+| 类别           | 选用技术 / 规范               | 核心规则与注意事项                                                                             |
+| :------------- | :---------------------------- | :--------------------------------------------------------------------------------------------- |
+| **Node.js**    | `>= 24.0.0`                   | 利用现代 Node 原生特性（原生 `URLSearchParams`、Subpath Imports `#*`）。                       |
+| **包管理器**   | `pnpm >= 12.3.4`              | 锁定文件为 `pnpm-lock.yaml`，请勿使用 npm 或 yarn。                                            |
+| **构建打包**   | `tsdown`                      | 配置文件为 `tsdown.config.ts`。打包目标输出至 `dist/`，必须支持 ESM (`.mjs`) 与 CJS (`.cjs`)。 |
+| **静态检查**   | `oxlint` (`.oxlintrc.json`)   | **禁止使用 ESLint**。检查命令为 `pnpm run lint`，修复命令为 `pnpm run lint:fix`。              |
+| **代码格式化** | `oxfmt` (`.oxfmtrc.json`)     | **禁止使用 Prettier**。单引号、无分号、最大行宽 120 字符。命令：`pnpm run fmt`。               |
+| **测试框架**   | `vitest` (`vitest.config.ts`) | 支持针对定时器使用 `vi.useFakeTimers()`，网络 Mock 使用 `vi.spyOn` 或参数注入。                |
 
 ---
 
@@ -54,6 +54,7 @@ src/
 ## 📐 编码与架构设计准则
 
 ### 1. 环境变量使用规范
+
 - **禁止** 在业务代码中直接读取未封装的 `process.env.XXX`。
 - **必须** 统一通过 `src/core/env.ts` 的 `useEnv<T>(key, fallback?)` 获取：
   ```typescript
@@ -66,21 +67,25 @@ src/
 - **同步模版**：新增环境变量时，必须在根目录 `.env.example` 中补充相应说明与注释。
 
 ### 2. HTTP 请求与网络容错
+
 - 所有 HTTP 请求必须使用 `src/core/client.ts` 中的 `httpClient` 或 `createHttpClient`。
 - POST 表单请求使用 `client.postForm(url, data)`，会自动过滤值为 `null` 或 `undefined` 的键，避免向服务端提交非法空值。
 - 网络重试应搭配退避机制（如 `src/tasks/balance/api.ts` 中的 `delayMs = backoff ** attempt * 1000`）。
 - 批量任务（如同时查询水费与电费）必须具备**局部容错能力**，某一单项失败应记录至 `result.errors`，不能直接导致整个脚本崩溃未捕获。
 
 ### 3. Subpath Imports 与路径别名
+
 - 内部模块相互引用优先使用 Node Subpath Imports `#core/*` 与 `#tasks/*`（在 `package.json` 的 `imports` 中已定义 `#* -> ./src/*`）。
 - 避免书写跨层级的长相对路径（如 `../../core/utils`）。
 
 ### 4. 新增业务任务规范
+
 若要在 `src/tasks/` 下新增任务（例如 `src/tasks/weather/`）：
+
 1. 目录结构保持规范：`constants.ts`、`types.ts`、`api.ts`、`index.ts`。
 2. 在 `package.json` 的 `exports` 中增加子路径声明，如 `"./weather": { "import": "./dist/weather.mjs", "require": "./dist/weather.cjs" }`。
 3. 在 `tsdown.config.ts` 的 `entry` 中加入新入口：`weather: 'src/tasks/weather/index.ts'`。
-4. 在 `tests/` 下建立对应的测试文件 `tests/weather.test.ts`，确保覆盖正常流与异常流。
+4. 在 `test/unit/` 下建立对应的单元测试文件 `test/unit/weather.test.ts`，并在 `test/e2e/` 下补充端到端测试。
 
 ---
 
@@ -97,9 +102,11 @@ src/
    pnpm run lint
    pnpm run fmt:check
    ```
-3. **单元测试验证**：
+3. **测试验证**：
    ```bash
-   pnpm run test
+   pnpm run test:unit   # 快速单元测试（Mock隔离、零外部网络依赖）
+   pnpm run test:e2e    # 真实运行端到端测试（依赖 .env 配置）
+   pnpm run test        # 运行全部测试套件（Unit + E2E）
    ```
 4. **编译构建打包**：
    ```bash
