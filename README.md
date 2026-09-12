@@ -119,6 +119,10 @@ WATER_TABLE_ID=你的水表表号ID
 # Bark 推送通知配置
 BARK_DEVICE_KEY=你的Bark设备Key
 BARK_API_BASE=https://api.day.app
+# 推送分组（默认值为 Scripts）
+BARK_GROUP=Scripts
+# 推送图标（默认使用项目定制图标）
+BARK_ICON=https://s41.ax1x.com/2026/09/12/pneJPOK.png
 ```
 
 ---

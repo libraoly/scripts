@@ -62,6 +62,10 @@ interface BalanceCheckOptions {
   notify?: boolean;
   /** 自定义 Bark 标题，默认 '水电费余额通知' */
   notifyTitle?: string;
+  /** 自定义 Bark 分组名 */
+  notifyGroup?: string;
+  /** 自定义 Bark 图标 URL */
+  notifyIcon?: string;
 }
 interface BalanceCheckResult {
   /** 电费余额（如果未查询或失败可能为 null / undefined） */

@@ -4,7 +4,11 @@ import { useEnv } from '#core/env'
 export const BARK_API_BASE_ENV_NAME = 'BARK_API_BASE'
 export const BARK_DEVICE_KEY_ENV_NAME = 'BARK_DEVICE_KEY'
 export const BARK_DEVICE_KEYS_ENV_NAME = 'BARK_DEVICE_KEYS'
+export const BARK_GROUP_ENV_NAME = 'BARK_GROUP'
+export const BARK_ICON_ENV_NAME = 'BARK_ICON'
 export const DEFAULT_BARK_API_BASE = 'https://api.day.app'
+export const DEFAULT_BARK_GROUP = 'Scripts'
+export const DEFAULT_BARK_ICON = 'https://s41.ax1x.com/2026/09/12/pneJPOK.png'
 
 export type BarkInterruptionLevel = 'critical' | 'active' | 'timeSensitive' | 'passive'
 
@@ -70,6 +74,10 @@ export interface BarkOptions {
   deviceKey?: string | string[]
   /** 多个设备 Key 列表，用于批量推送（优先级高于环境变量） */
   deviceKeys?: string[]
+  /** 自定义推送分组（优先级高于环境变量 BARK_GROUP，默认为 Scripts） */
+  group?: string
+  /** 自定义推送图标 URL（优先级高于环境变量 BARK_ICON，默认为特定图标） */
+  icon?: string
   /** 请求超时时间（毫秒） */
   timeout?: number
   /** 自定义通用 HTTP 客户端 */
@@ -204,8 +212,22 @@ export async function sendToBark(payload: BarkPayload, options?: BarkOptions): P
 export async function sendToBark(payloadOrBody: string | BarkPayload, options?: BarkOptions): Promise<BarkResponse>
 
 export async function sendToBark(payloadOrBody: string | BarkPayload, options?: BarkOptions): Promise<BarkResponse> {
-  const base = options?.apiBase ?? useEnv<string>(BARK_API_BASE_ENV_NAME, DEFAULT_BARK_API_BASE)
-  const rawPayload: BarkPayload = typeof payloadOrBody === 'string' ? { body: payloadOrBody } : { ...payloadOrBody }
+  const base = options?.apiBase ?? (useEnv<string>(BARK_API_BASE_ENV_NAME, '') || DEFAULT_BARK_API_BASE)
+  const defaultGroup = options?.group ?? (useEnv<string>(BARK_GROUP_ENV_NAME, '') || DEFAULT_BARK_GROUP)
+  const defaultIcon = options?.icon ?? (useEnv<string>(BARK_ICON_ENV_NAME, '') || DEFAULT_BARK_ICON)
+
+  const rawPayload: BarkPayload =
+    typeof payloadOrBody === 'string'
+      ? {
+          body: payloadOrBody,
+          group: defaultGroup,
+          icon: defaultIcon,
+        }
+      : {
+          ...payloadOrBody,
+          group: payloadOrBody.group ?? defaultGroup,
+          icon: payloadOrBody.icon ?? defaultIcon,
+        }
   const keys = extractDeviceKeys(rawPayload, options)
 
   const { targetUrl, finalPayload } = resolveEndpoint(base, rawPayload, keys)

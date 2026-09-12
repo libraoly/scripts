@@ -1,31 +1,7 @@
-//#region \0rolldown/runtime.js
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __copyProps = (to, from, except, desc) => {
-	if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
-		key = keys[i];
-		if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
-			get: ((k) => from[k]).bind(null, key),
-			enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
-		});
-	}
-	return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule || !__hasOwnProp.call(mod, "default") ? __defProp(target, "default", {
-	value: mod,
-	enumerable: true
-}) : target, mod));
-//#endregion
-let consola = require("consola");
-consola = __toESM(consola, 1);
-let ky = require("ky");
-ky = __toESM(ky, 1);
-let destr = require("destr");
-let std_env = require("std-env");
+import consola from "consola";
+import ky from "ky";
+import { destr } from "destr";
+import { env } from "std-env";
 //#region src/core/client.ts
 /**
 * 将对象键值对转换为 URLSearchParams，自动过滤 null 与 undefined
@@ -54,7 +30,7 @@ function resolveKy(k) {
 */
 function createHttpClient(options = {}) {
 	const { kyInstance, ...kyOptions } = options;
-	const kyResolved = resolveKy(ky.default);
+	const kyResolved = resolveKy(ky);
 	const instance = kyInstance ?? kyResolved.create({
 		retry: {
 			limit: 2,
@@ -120,10 +96,10 @@ const httpClient = createHttpClient();
 //#endregion
 //#region src/core/env.ts
 function useEnv(key, fallback = void 0) {
-	const rawValue = std_env.env[key];
+	const rawValue = env[key];
 	if (rawValue === void 0 && fallback === void 0) throw new Error(`[useEnv] Missing required environment variable: "${key}"`);
 	if (rawValue === void 0 && fallback !== void 0) return fallback;
-	return (0, destr.destr)(rawValue);
+	return destr(rawValue);
 }
 const BARK_DEVICE_KEY_ENV_NAME = "BARK_DEVICE_KEY";
 const BARK_DEVICE_KEYS_ENV_NAME = "BARK_DEVICE_KEYS";
@@ -189,8 +165,18 @@ function resolveEndpoint(base, payload, keys) {
 	};
 }
 async function sendToBark(payloadOrBody, options) {
-	const base = options?.apiBase ?? useEnv("BARK_API_BASE", "https://api.day.app");
-	const rawPayload = typeof payloadOrBody === "string" ? { body: payloadOrBody } : { ...payloadOrBody };
+	const base = options?.apiBase ?? (useEnv("BARK_API_BASE", "") || "https://api.day.app");
+	const defaultGroup = options?.group ?? (useEnv("BARK_GROUP", "") || "Scripts");
+	const defaultIcon = options?.icon ?? (useEnv("BARK_ICON", "") || "https://s41.ax1x.com/2026/09/12/pneJPOK.png");
+	const rawPayload = typeof payloadOrBody === "string" ? {
+		body: payloadOrBody,
+		group: defaultGroup,
+		icon: defaultIcon
+	} : {
+		...payloadOrBody,
+		group: payloadOrBody.group ?? defaultGroup,
+		icon: payloadOrBody.icon ?? defaultIcon
+	};
 	const { targetUrl, finalPayload } = resolveEndpoint(base, rawPayload, extractDeviceKeys(rawPayload, options));
 	const result = await (options?.client ?? httpClient).post(targetUrl, {
 		json: finalPayload,
@@ -306,7 +292,7 @@ async function getWaterBalance(options) {
 }
 //#endregion
 //#region src/tasks/balance/index.ts
-const logger = consola.default.withTag("Balance");
+const logger = consola.withTag("Balance");
 /**
 * 执行余额查询任务（可同时查询电费和水费，并支持 Bark 通知与日志输出）
 *
@@ -314,7 +300,7 @@ const logger = consola.default.withTag("Balance");
 * @returns 查询结果
 */
 async function runBalanceCheck(options = {}) {
-	const { electricity: checkElectricity = true, water: checkWater = true, notify = false, notifyTitle = "水电费余额通知" } = options;
+	const { electricity: checkElectricity = true, water: checkWater = true, notify = false, notifyTitle = "水电费余额通知", notifyGroup, notifyIcon } = options;
 	let electricityBalance = null;
 	let waterBalance = null;
 	let success = true;
@@ -341,7 +327,9 @@ async function runBalanceCheck(options = {}) {
 		if (checkWater) lines.push(`💧 水费余额: ${waterBalance ?? "查询失败"} 元`);
 		await sendToBark({
 			title: notifyTitle,
-			body: lines.join("\n")
+			body: lines.join("\n"),
+			...notifyGroup ? { group: notifyGroup } : {},
+			...notifyIcon ? { icon: notifyIcon } : {}
 		});
 		logger.success("Bark 通知发送成功");
 	} catch (error) {
@@ -357,9 +345,4 @@ async function runBalanceCheck(options = {}) {
 	};
 }
 //#endregion
-Object.defineProperty(exports, "runBalanceCheck", {
-	enumerable: true,
-	get: function() {
-		return runBalanceCheck;
-	}
-});
+export { runBalanceCheck as t };

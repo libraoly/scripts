@@ -20,6 +20,8 @@ export async function runBalanceCheck(options: BalanceCheckOptions = {}): Promis
     water: checkWater = true,
     notify = false,
     notifyTitle = '水电费余额通知',
+    notifyGroup,
+    notifyIcon,
   } = options
 
   let electricityBalance: string | null = null
@@ -61,7 +63,12 @@ export async function runBalanceCheck(options: BalanceCheckOptions = {}): Promis
         lines.push(`💧 水费余额: ${waterBalance ?? '查询失败'} 元`)
       }
       const body = lines.join('\n')
-      await sendToBark({ title: notifyTitle, body })
+      await sendToBark({
+        title: notifyTitle,
+        body,
+        ...(notifyGroup ? { group: notifyGroup } : {}),
+        ...(notifyIcon ? { icon: notifyIcon } : {}),
+      })
       logger.success('Bark 通知发送成功')
     } catch (error) {
       errors.notify = error

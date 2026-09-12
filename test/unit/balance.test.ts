@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+import * as barkModule from '#core/bark'
 import type { HttpClient } from '#core/client'
 import { runBalanceCheck } from '#tasks/balance'
 import { fetchBalance } from '#tasks/balance/api'
@@ -353,6 +354,81 @@ describe('Balance Module', () => {
       expect(result.electricity).toBe('150.00')
       expect(result.water).toBeUndefined()
       expect(mockClient.postForm).toHaveBeenCalledTimes(1)
+    })
+
+    it('should send notification via sendToBark with custom group and icon', async () => {
+      process.env.ELECTRICITY_CARNO = 'elec_carno'
+      process.env.ELECTRICITY_TABLE_ID = 'elec_id'
+      process.env.WATER_CARNO = 'water_carno'
+      process.env.WATER_TABLE_ID = 'water_id'
+
+      const mockClient = {
+        postForm: vi
+          .fn()
+          .mockResolvedValueOnce({ body: { data: { balance: '120.50' } } })
+          .mockResolvedValueOnce({ body: { data: { balance: '45.20' } } }),
+      } as unknown as HttpClient
+
+      const spySendToBark = vi.spyOn(barkModule, 'sendToBark').mockResolvedValue({
+        code: 200,
+        message: 'success',
+        timestamp: 1700000000,
+      })
+
+      const result = await runBalanceCheck({
+        electricity: { client: mockClient },
+        water: { client: mockClient },
+        notify: true,
+        notifyTitle: '余额通知',
+        notifyGroup: 'CustomGroup',
+        notifyIcon: 'https://example.com/custom-icon.png',
+      })
+
+      expect(result.success).toBe(true)
+      expect(spySendToBark).toHaveBeenCalledTimes(1)
+      expect(spySendToBark).toHaveBeenCalledWith({
+        title: '余额通知',
+        body: '⚡ 电费余额: 120.50 元\n💧 水费余额: 45.20 元',
+        group: 'CustomGroup',
+        icon: 'https://example.com/custom-icon.png',
+      })
+
+      spySendToBark.mockRestore()
+    })
+
+    it('should send notification with defaults when notifyGroup and notifyIcon are omitted', async () => {
+      process.env.ELECTRICITY_CARNO = 'elec_carno'
+      process.env.ELECTRICITY_TABLE_ID = 'elec_id'
+      process.env.WATER_CARNO = 'water_carno'
+      process.env.WATER_TABLE_ID = 'water_id'
+
+      const mockClient = {
+        postForm: vi
+          .fn()
+          .mockResolvedValueOnce({ body: { data: { balance: '120.50' } } })
+          .mockResolvedValueOnce({ body: { data: { balance: '45.20' } } }),
+      } as unknown as HttpClient
+
+      const spySendToBark = vi.spyOn(barkModule, 'sendToBark').mockResolvedValue({
+        code: 200,
+        message: 'success',
+        timestamp: 1700000000,
+      })
+
+      const result = await runBalanceCheck({
+        electricity: { client: mockClient },
+        water: { client: mockClient },
+        notify: true,
+      })
+
+      expect(result.success).toBe(true)
+      expect(spySendToBark).toHaveBeenCalledTimes(1)
+      expect(spySendToBark).toHaveBeenCalledWith({
+        title: '水电费余额通知',
+        body: '⚡ 电费余额: 120.50 元\n💧 水费余额: 45.20 元',
+      })
+
+      spySendToBark.mockRestore()
     })
   })
 

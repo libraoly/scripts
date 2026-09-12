@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-import { sendToBark, createBarkClient, type BarkPayload } from '#core/bark'
+import { sendToBark, createBarkClient, type BarkPayload, DEFAULT_BARK_GROUP, DEFAULT_BARK_ICON } from '#core/bark'
 import { httpClient, type HttpClient } from '#core/client'
 
 describe('Bark Push Notification Client', () => {
@@ -11,6 +11,8 @@ describe('Bark Push Notification Client', () => {
     delete process.env.BARK_API_BASE
     delete process.env.BARK_DEVICE_KEY
     delete process.env.BARK_DEVICE_KEYS
+    delete process.env.BARK_GROUP
+    delete process.env.BARK_ICON
 
     mockPost = vi.spyOn(httpClient, 'post').mockResolvedValue({
       code: 200,
@@ -24,6 +26,8 @@ describe('Bark Push Notification Client', () => {
     delete process.env.BARK_API_BASE
     delete process.env.BARK_DEVICE_KEY
     delete process.env.BARK_DEVICE_KEYS
+    delete process.env.BARK_GROUP
+    delete process.env.BARK_ICON
   })
 
   describe('Single Device Key Routing (Full URL)', () => {
@@ -39,6 +43,8 @@ describe('Bark Push Notification Client', () => {
         expect.objectContaining({
           json: {
             body: 'Hello World',
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -62,6 +68,8 @@ describe('Bark Push Notification Client', () => {
           json: {
             title: 'Notice',
             body: 'Alert Message',
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -80,6 +88,8 @@ describe('Bark Push Notification Client', () => {
           json: {
             title: 'Notice',
             body: 'Alert Message',
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -95,6 +105,8 @@ describe('Bark Push Notification Client', () => {
         expect.objectContaining({
           json: {
             body: 'Env Test',
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -156,6 +168,8 @@ describe('Bark Push Notification Client', () => {
           json: {
             body: 'Batch notification',
             device_keys: ['key1', 'key2', 'key3'],
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -172,6 +186,8 @@ describe('Bark Push Notification Client', () => {
           json: {
             body: 'Batch from options',
             device_keys: ['k1', 'k2'],
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -188,6 +204,8 @@ describe('Bark Push Notification Client', () => {
           json: {
             body: 'Comma keys',
             device_keys: ['k1', 'k2', 'k3'],
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -204,6 +222,8 @@ describe('Bark Push Notification Client', () => {
           json: {
             body: 'Array keys',
             device_keys: ['k1', 'k2'],
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -220,6 +240,8 @@ describe('Bark Push Notification Client', () => {
           json: {
             body: 'Multi Env Test',
             device_keys: ['env1', 'env2'],
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -236,6 +258,8 @@ describe('Bark Push Notification Client', () => {
           json: {
             body: 'BARK_DEVICE_KEYS Test',
             device_keys: ['key_a', 'key_b'],
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -253,6 +277,8 @@ describe('Bark Push Notification Client', () => {
           json: {
             body: 'Dual Env Merge Test',
             device_keys: ['key_2', 'key_overlap', 'key_1'],
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -269,7 +295,11 @@ describe('Bark Push Notification Client', () => {
       expect(mockPost).toHaveBeenCalledWith(
         'https://custom.bark.host/my_key',
         expect.objectContaining({
-          json: { body: 'Normalize Host Test' },
+          json: {
+            body: 'Normalize Host Test',
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
+          },
         }),
       )
     })
@@ -320,6 +350,8 @@ describe('Bark Push Notification Client', () => {
         expect.objectContaining({
           json: {
             body: 'Message via Client',
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -343,6 +375,8 @@ describe('Bark Push Notification Client', () => {
         expect.objectContaining({
           json: {
             body: 'Custom Client Message',
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
           },
         }),
       )
@@ -366,10 +400,137 @@ describe('Bark Push Notification Client', () => {
       expect(customPost).toHaveBeenCalledWith(
         'https://api.day.app/custom_key',
         expect.objectContaining({
-          json: { body: 'Message' },
+          json: {
+            body: 'Message',
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
+          },
         }),
       )
       expect(mockPost).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Default Group and Icon Configuration', () => {
+    it('should attach default group and icon when none are provided', async () => {
+      await sendToBark('Default test', { deviceKey: 'test_key' })
+
+      expect(mockPost).toHaveBeenCalledWith(
+        'https://api.day.app/test_key',
+        expect.objectContaining({
+          json: {
+            body: 'Default test',
+            group: DEFAULT_BARK_GROUP,
+            icon: DEFAULT_BARK_ICON,
+          },
+        }),
+      )
+    })
+
+    it('should allow overriding group and icon via options', async () => {
+      await sendToBark('Options override test', {
+        deviceKey: 'test_key',
+        group: 'CustomOptionsGroup',
+        icon: 'https://example.com/custom-options.png',
+      })
+
+      expect(mockPost).toHaveBeenCalledWith(
+        'https://api.day.app/test_key',
+        expect.objectContaining({
+          json: {
+            body: 'Options override test',
+            group: 'CustomOptionsGroup',
+            icon: 'https://example.com/custom-options.png',
+          },
+        }),
+      )
+    })
+
+    it('should allow overriding group and icon via payload', async () => {
+      await sendToBark(
+        {
+          body: 'Payload override test',
+          group: 'CustomPayloadGroup',
+          icon: 'https://example.com/custom-payload.png',
+        },
+        {
+          deviceKey: 'test_key',
+          group: 'ShouldBeOverriddenGroup',
+          icon: 'https://example.com/should-be-overridden.png',
+        },
+      )
+
+      expect(mockPost).toHaveBeenCalledWith(
+        'https://api.day.app/test_key',
+        expect.objectContaining({
+          json: {
+            body: 'Payload override test',
+            group: 'CustomPayloadGroup',
+            icon: 'https://example.com/custom-payload.png',
+          },
+        }),
+      )
+    })
+
+    it('should read group and icon from environment variables', async () => {
+      process.env.BARK_GROUP = 'EnvGroup'
+      process.env.BARK_ICON = 'https://example.com/env-icon.png'
+
+      await sendToBark('Env test', { deviceKey: 'test_key' })
+
+      expect(mockPost).toHaveBeenCalledWith(
+        'https://api.day.app/test_key',
+        expect.objectContaining({
+          json: {
+            body: 'Env test',
+            group: 'EnvGroup',
+            icon: 'https://example.com/env-icon.png',
+          },
+        }),
+      )
+    })
+
+    it('should prioritize options over environment variables', async () => {
+      process.env.BARK_GROUP = 'EnvGroup'
+      process.env.BARK_ICON = 'https://example.com/env-icon.png'
+
+      await sendToBark('Options vs Env test', {
+        deviceKey: 'test_key',
+        group: 'OptionsGroup',
+        icon: 'https://example.com/options-icon.png',
+      })
+
+      expect(mockPost).toHaveBeenCalledWith(
+        'https://api.day.app/test_key',
+        expect.objectContaining({
+          json: {
+            body: 'Options vs Env test',
+            group: 'OptionsGroup',
+            icon: 'https://example.com/options-icon.png',
+          },
+        }),
+      )
+    })
+
+    it('should configure default group and icon via createBarkClient', async () => {
+      const client = createBarkClient({
+        deviceKey: 'test_key',
+        group: 'ClientDefaultGroup',
+        icon: 'https://example.com/client-icon.png',
+      })
+
+      await client.send('Message via configured client')
+
+      expect(mockPost).toHaveBeenCalledWith(
+        'https://api.day.app/test_key',
+        expect.objectContaining({
+          json: {
+            body: 'Message via configured client',
+            group: 'ClientDefaultGroup',
+            icon: 'https://example.com/client-icon.png',
+          },
+        }),
+      )
     })
   })
 })
