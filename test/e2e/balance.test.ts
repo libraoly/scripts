@@ -125,7 +125,7 @@ describe('E2E: Balance Query Live Execution', () => {
     it.runIf(hasBarkEnv())('should send live push notification when BARK_DEVICE_KEY is set', async () => {
       const result = await runBalanceCheck({
         notify: true,
-        notifyTitle: '[E2E Test] 水电费余额巡检测试',
+        notifyTitle: '水电费余额巡检测试',
       })
 
       expect(result.success).toBe(true)
