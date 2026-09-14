@@ -33,6 +33,10 @@
       "import": "./dist/balance.mjs",
       "require": "./dist/balance.cjs"
     },
+    "./eva": {
+      "import": "./dist/eva.mjs",
+      "require": "./dist/eva.cjs"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
@@ -48,9 +52,11 @@
   },
   "dependencies": {
     "consola": "^3.4.2",
+    "date-fns": "^4.4.0",
     "destr": "^2.0.5",
     "ky": "^2.1.0",
-    "std-env": "^4.2.0"
+    "std-env": "^4.2.0",
+    "unstorage": "^1.17.5"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

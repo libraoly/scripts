@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     balance: 'src/tasks/balance/index.ts',
+    eva: 'src/tasks/eva/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,

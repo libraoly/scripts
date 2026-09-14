@@ -49,20 +49,37 @@ describe('E2E: Built Bundle & Subprocess Execution', () => {
     })
   })
 
+  describe('Eva ESM & CommonJS Bundles (dist/eva.mjs & dist/eva.cjs)', () => {
+    it('should export runEvaStockCheck from ESM bundle', async () => {
+      const bundle = await import('../../dist/eva.mjs')
+      expect(typeof bundle.runEvaStockCheck).toBe('function')
+      expect(typeof bundle.fetchEvaStock).toBe('function')
+    })
+
+    it('should export runEvaStockCheck from CJS bundle', () => {
+      const bundlePath = resolve(import.meta.dirname, '../../dist/eva.cjs')
+      const bundle = nodeRequire(bundlePath)
+      expect(typeof bundle.runEvaStockCheck).toBe('function')
+      expect(typeof bundle.fetchEvaStock).toBe('function')
+    })
+  })
+
   describe('Root Entry Exports (dist/index.mjs & dist/index.cjs)', () => {
-    it('should export runBalanceCheck from root ESM entry', async () => {
+    it('should export runBalanceCheck and runEvaStockCheck from root ESM entry', async () => {
       const indexMjs = await import('../../dist/index.mjs')
       expect(typeof indexMjs.runBalanceCheck).toBe('function')
+      expect(typeof indexMjs.runEvaStockCheck).toBe('function')
       // 验证 core 基础设施严禁对外导出
       expect((indexMjs as Record<string, unknown>).sendToBark).toBeUndefined()
       expect((indexMjs as Record<string, unknown>).httpClient).toBeUndefined()
       expect((indexMjs as Record<string, unknown>).useEnv).toBeUndefined()
     })
 
-    it('should export runBalanceCheck from root CJS entry', () => {
+    it('should export runBalanceCheck and runEvaStockCheck from root CJS entry', () => {
       const indexPath = resolve(import.meta.dirname, '../../dist/index.cjs')
       const indexCjs = nodeRequire(indexPath)
       expect(typeof indexCjs.runBalanceCheck).toBe('function')
+      expect(typeof indexCjs.runEvaStockCheck).toBe('function')
       // 验证 core 基础设施严禁对外导出
       expect(indexCjs.sendToBark).toBeUndefined()
       expect(indexCjs.httpClient).toBeUndefined()
@@ -99,5 +116,30 @@ describe('E2E: Built Bundle & Subprocess Execution', () => {
         expect(stdout).toContain('"success":true')
       },
     )
+
+    it('should run eva stock check successfully in a standalone Node.js process with --env-file', async () => {
+      const rootDir = resolve(import.meta.dirname, '../..')
+      const code = `
+        import('./dist/eva.mjs').then(m => m.runEvaStockCheck({ notify: false })).then(res => {
+          if (!res.success) {
+            console.error('Eva stock check failed:', res);
+            process.exit(1);
+          }
+          console.log('EVA_SUCCESS_RESULT:', JSON.stringify(res));
+        }).catch(err => {
+          console.error('Fatal execution error:', err);
+          process.exit(1);
+        });
+      `
+
+      const { stdout } = await execFileAsync(process.execPath, ['--env-file=.env', '--input-type=module', '-e', code], {
+        cwd: rootDir,
+        timeout: 30_000,
+      })
+
+      expect(stdout).toContain('EVA_SUCCESS_RESULT:')
+      expect(stdout).toContain('"success":true')
+      expect(stdout).toContain('5310000100278003')
+    })
   })
 })

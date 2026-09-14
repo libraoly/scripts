@@ -28,9 +28,10 @@
 
 ## 🧩 现有任务模块 (Tasks)
 
-| 任务 / 模块        | 模块路径          | 说明                                                                                 | 外部依赖 / 服务         |
-| :----------------- | :---------------- | :----------------------------------------------------------------------------------- | :---------------------- |
-| **水电费余额巡检** | `scripts/balance` | 自动抓取物业电表、水表当前余额，支持独立查询与综合巡检，内置失败重试与 Bark 通知集成 | 物业系统接口 (EasyLife) |
+| 任务 / 模块            | 模块路径          | 说明                                                                                 | 外部依赖 / 服务                     |
+| :--------------------- | :---------------- | :----------------------------------------------------------------------------------- | :---------------------------------- |
+| **水电费余额巡检**     | `scripts/balance` | 自动抓取物业电表、水表当前余额，支持独立查询与综合巡检，内置失败重试与 Bark 通知集成 | 物业系统接口 (EasyLife)             |
+| **Eva 机器人库存监控** | `scripts/eva`     | 自动监控领克商城车载 Eva 机器人黑白双色实时库存，支持自动重试与 Bark 时效性跳转通知  | 领克商城接口 (api-dmall.lynkco.com) |
 
 ---
 
@@ -56,15 +57,22 @@ scripts/
 │   │   ├── env.ts               # 类型安全的环境变量加载与解析 (useEnv)
 │   │   ├── utils.ts             # 异步 sleep 等通用工具函数
 │   │   ├── client.ts            # 基于 ky 封装的高级 HTTP 客户端 (httpClient)
-│   │   └── bark.ts              # iOS Bark 消息推送服务客户端 (sendToBark)
+│   │   ├── bark.ts              # iOS Bark 消息推送服务客户端 (sendToBark)
+│   │   └── storage.ts           # 基于 unstorage (fsDriver) 的本地持久化存储 (storage)
 │   ├── tasks/                   # [业务任务模块]：每个任务为独立子目录
-│   │   └── balance/             # 水电费余额查询与巡检任务
-│   │       ├── constants.ts     # 物业接口端点、表单常数、枚举
-│   │       ├── types.ts         # 数据模型与入参类型声明
-│   │       ├── api.ts           # 核心通用查询 API（支持重试与退避）
-│   │       ├── electricity.ts   # 电费余额查询高阶函数
-│   │       ├── water.ts         # 水费余额查询高阶函数
-│   │       └── index.ts         # 批量巡检任务编排与统一导出
+│   │   ├── balance/             # 水电费余额查询与巡检任务
+│   │   │   ├── constants.ts     # 物业接口端点、表单常数、枚举
+│   │   │   ├── types.ts         # 数据模型与入参类型声明
+│   │   │   ├── api.ts           # 核心通用查询 API（支持重试与退避）
+│   │   │   ├── electricity.ts   # 电费余额查询高阶函数
+│   │   │   ├── water.ts         # 水费余额查询高阶函数
+│   │   │   └── index.ts         # 批量巡检任务编排与统一导出
+│   │   └── eva/                 # 领克商城 Eva 机器人库存监控任务
+│   │       ├── constants.ts     # 商城端点、SKU 映射、Bark 与默认 Header 常量
+│   │       ├── types.ts         # 商品动态响应实体、事件定义与入参类型
+│   │       ├── api.ts           # 单 SKU 库存拉取与指数退避重试 (fetchEvaStock)
+│   │       ├── events.ts        # 状态转移判定与 date-fns 动态标题文案生成
+│   │       └── index.ts         # 多 SKU 分开发送通知、错误隔离与持久化巡检
 │   └── index.ts                 # 顶层任务导出入口（仅汇聚导出 tasks，不导出 core）
 ├── test/                        # 测试套件（Vitest Projects 架构）
 │   ├── unit/                    # 单元测试（Mock 隔离、零网络依赖）
@@ -142,7 +150,11 @@ pnpm run build
 借助 Node.js 24 原生 `--env-file` 参数，可直接加载 `.env` 并在无额外依赖的情况下执行巡检任务：
 
 ```bash
+# 执行水电费余额巡检
 node --env-file=.env --input-type=module -e "import('./dist/balance.mjs').then(m => m.runBalanceCheck({ notify: true }))"
+
+# 执行领克商城 Eva 机器人库存监控（有货时自动发送 Bark 通知）
+node --env-file=.env --input-type=module -e "import('./dist/eva.mjs').then(m => m.runEvaStockCheck({ notify: true }))"
 ```
 
 ### 3. 系统定时任务配置
@@ -232,6 +244,38 @@ const waterResult = await runBalanceCheck({
   notify: false,
 })
 console.log(`当前水费余额: ${waterResult.water} 元`)
+```
+
+### 3. 运行领克商城 Eva 机器人库存监控与通知
+
+```typescript
+import { runEvaStockCheck } from 'scripts/eva'
+
+// 监控 Eva 车载机器人库存（默认同时监控极地白与高亮黑两款 SKU）
+// - 自动基于 unstorage 本地文件持久化记录对比上一次库存状态；
+// - 支持无货到有货（🎉 发现现货）、售罄（⚠️ 已售罄）、库存急剧变动（⚡ 快速变化）等多维度事件判定；
+// - 每个 SKU 独立分发 Bark 通知，动态标题与模板内容（带 date-fns 格式化时间戳），点击直达领克 App 选购；
+// - 默认 notifyPolicy 为 'onChange'（仅在状态变动或首次有货时推送），避免定时轮询高频骚扰。
+const result = await runEvaStockCheck({
+  notify: true,
+  notifyPolicy: 'onChange',
+})
+
+console.log('库存监控结果:', result)
+// 输出包含 hasStock、stocks、events（变动事件）与 records（持久化快照）
+```
+
+### 4. 单 SKU 原子查询与自定义参数
+
+```typescript
+import { fetchEvaStock } from 'scripts/eva'
+
+// 查询指定 SKU 实时库存
+const stockInfo = await fetchEvaStock({
+  skuId: '5310000100278003', // Eva 高亮黑
+})
+
+console.log(`${stockInfo.skuName} 剩余库存: ${stockInfo.stock} 件`)
 ```
 
 ---
