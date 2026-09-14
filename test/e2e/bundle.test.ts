@@ -71,6 +71,7 @@ describe('E2E: Built Bundle & Subprocess Execution', () => {
       expect(typeof indexMjs.runEvaStockCheck).toBe('function')
       // 验证 core 基础设施严禁对外导出
       expect((indexMjs as Record<string, unknown>).sendToBark).toBeUndefined()
+      expect((indexMjs as Record<string, unknown>).sendToGotify).toBeUndefined()
       expect((indexMjs as Record<string, unknown>).httpClient).toBeUndefined()
       expect((indexMjs as Record<string, unknown>).useEnv).toBeUndefined()
     })
@@ -82,6 +83,7 @@ describe('E2E: Built Bundle & Subprocess Execution', () => {
       expect(typeof indexCjs.runEvaStockCheck).toBe('function')
       // 验证 core 基础设施严禁对外导出
       expect(indexCjs.sendToBark).toBeUndefined()
+      expect(indexCjs.sendToGotify).toBeUndefined()
       expect(indexCjs.httpClient).toBeUndefined()
       expect(indexCjs.useEnv).toBeUndefined()
     })

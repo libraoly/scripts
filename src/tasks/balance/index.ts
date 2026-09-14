@@ -1,6 +1,7 @@
 import consola from 'consola'
 
 import { sendToBark } from '#core/bark'
+import { sendToGotify } from '#core/gotify'
 
 import { getElectricityBalance } from './electricity'
 import type { BalanceCheckOptions, BalanceCheckResult } from './types'
@@ -9,7 +10,7 @@ import { getWaterBalance } from './water'
 const logger = consola.withTag('Balance')
 
 /**
- * 执行余额查询任务（可同时查询电费和水费，并支持 Bark 通知与日志输出）
+ * 执行余额查询任务（可同时查询电费和水费，并支持 Bark / Gotify 通知与日志输出）
  *
  * @param options 运行配置选项
  * @returns 查询结果
@@ -22,6 +23,8 @@ export async function runBalanceCheck(options: BalanceCheckOptions = {}): Promis
     notifyTitle = '水电费余额通知',
     notifyGroup,
     notifyIcon,
+    notifyGotify = false,
+    gotifyPriority,
   } = options
 
   let electricityBalance: string | null = null
@@ -72,7 +75,40 @@ export async function runBalanceCheck(options: BalanceCheckOptions = {}): Promis
       logger.success('Bark 通知发送成功')
     } catch (error) {
       errors.notify = error
+      errors.notifyBark = error
       logger.warn('发送 Bark 通知失败:', error)
+    }
+  }
+
+  if (notifyGotify) {
+    try {
+      const lines: string[] = []
+      if (checkElectricity) {
+        lines.push(`⚡ **电费余额**: ${electricityBalance ?? '查询失败'} 元`)
+      }
+      if (checkWater) {
+        lines.push(`💧 **水费余额**: ${waterBalance ?? '查询失败'} 元`)
+      }
+      const message = lines.join('\n')
+      const gotifyOpt = typeof notifyGotify === 'object' ? notifyGotify : undefined
+      await sendToGotify(
+        {
+          title: notifyTitle,
+          message,
+          ...(gotifyPriority !== undefined ? { priority: gotifyPriority } : {}),
+          extras: {
+            'client::display': { contentType: 'text/markdown' },
+          },
+        },
+        gotifyOpt,
+      )
+      logger.success('Gotify 通知发送成功')
+    } catch (error) {
+      errors.notifyGotify = error
+      if (!errors.notify) {
+        errors.notify = error
+      }
+      logger.warn('发送 Gotify 通知失败:', error)
     }
   }
 

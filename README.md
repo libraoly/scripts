@@ -28,10 +28,10 @@
 
 ## 🧩 现有任务模块 (Tasks)
 
-| 任务 / 模块            | 模块路径          | 说明                                                                                 | 外部依赖 / 服务                     |
-| :--------------------- | :---------------- | :----------------------------------------------------------------------------------- | :---------------------------------- |
-| **水电费余额巡检**     | `scripts/balance` | 自动抓取物业电表、水表当前余额，支持独立查询与综合巡检，内置失败重试与 Bark 通知集成 | 物业系统接口 (EasyLife)             |
-| **Eva 机器人库存监控** | `scripts/eva`     | 自动监控领克商城车载 Eva 机器人黑白双色实时库存，支持自动重试与 Bark 时效性跳转通知  | 领克商城接口 (api-dmall.lynkco.com) |
+| 任务 / 模块            | 模块路径          | 说明                                                                                          | 外部依赖 / 服务                     |
+| :--------------------- | :---------------- | :-------------------------------------------------------------------------------------------- | :---------------------------------- |
+| **水电费余额巡检**     | `scripts/balance` | 自动抓取物业电表、水表当前余额，支持独立查询与综合巡检，内置失败重试与 Bark / Gotify 通知集成 | 物业系统接口 (EasyLife)             |
+| **Eva 机器人库存监控** | `scripts/eva`     | 自动监控领克商城车载 Eva 机器人黑白双色实时库存，支持自动重试与 Bark / Gotify 时效性通知      | 领克商城接口 (api-dmall.lynkco.com) |
 
 ---
 
@@ -58,6 +58,7 @@ scripts/
 │   │   ├── utils.ts             # 异步 sleep 等通用工具函数
 │   │   ├── client.ts            # 基于 ky 封装的高级 HTTP 客户端 (httpClient)
 │   │   ├── bark.ts              # iOS Bark 消息推送服务客户端 (sendToBark)
+│   │   ├── gotify.ts            # Gotify 自建消息推送服务客户端 (sendToGotify)
 │   │   └── storage.ts           # 基于 unstorage (fsDriver) 的本地持久化存储 (storage)
 │   ├── tasks/                   # [业务任务模块]：每个任务为独立子目录
 │   │   ├── balance/             # 水电费余额查询与巡检任务
@@ -131,6 +132,11 @@ BARK_API_BASE=https://api.day.app
 BARK_GROUP=Scripts
 # 推送图标（默认使用项目定制图标）
 BARK_ICON=https://s41.ax1x.com/2026/09/12/pneJPOK.png
+
+# Gotify 推送通知配置（https://gotify.net/api-docs）
+GOTIFY_API_BASE=https://gotify.example.com
+GOTIFY_APP_TOKEN=你的Gotify应用Token
+GOTIFY_DEFAULT_PRIORITY=5
 ```
 
 ---
@@ -210,11 +216,12 @@ node --env-file=.env --input-type=module -e "import('./dist/eva.mjs').then(m => 
 ```typescript
 import { runBalanceCheck } from 'scripts/balance'
 
-// 执行巡检：自动查询水费与电费，并通过 Bark 推送手机通知
+// 执行巡检：自动查询水费与电费，并通过 Bark / Gotify 推送通知
 const result = await runBalanceCheck({
   electricity: true,
   water: true,
-  notify: true,
+  notify: true, // 发送 Bark 通知
+  notifyGotify: true, // 亦可同时发送 Gotify 消息通知
   notifyTitle: '🏠 每日水电费余额巡检',
 })
 
@@ -257,7 +264,8 @@ import { runEvaStockCheck } from 'scripts/eva'
 // - 每个 SKU 独立分发 Bark 通知，动态标题与模板内容（带 date-fns 格式化时间戳），点击直达领克 App 选购；
 // - 默认 notifyPolicy 为 'onChange'（仅在状态变动或首次有货时推送），避免定时轮询高频骚扰。
 const result = await runEvaStockCheck({
-  notify: true,
+  notify: true, // 启用 Bark 通知
+  notifyGotify: true, // 启用 Gotify 消息推送
   notifyPolicy: 'onChange',
 })
 

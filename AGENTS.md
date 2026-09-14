@@ -38,7 +38,9 @@ src/
 │   ├── env.ts                   # 环境变量读取器（基于 std-env + destr，严格类型推断）
 │   ├── utils.ts                 # 通用非业务工具（如异步 sleep）
 │   ├── client.ts                # 基于 ky 封装的高级 HTTP 客户端
-│   └── bark.ts                  # iOS Bark 消息推送客户端
+│   ├── bark.ts                  # iOS Bark 消息推送客户端
+│   ├── gotify.ts                # Gotify 自建消息推送服务客户端
+│   └── storage.ts               # 基于 unstorage 的统一本地持久化存储
 ├── tasks/                       # [自动化任务业务层]：每个业务为独立子目录，对外暴露业务能力
 │   └── balance/                 # 水电费余额查询与巡检任务
 │       ├── constants.ts         # 业务常量、URL、默认 Form 参数、请求头

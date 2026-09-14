@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import * as barkModule from '#core/bark'
 import type { HttpClient } from '#core/client'
+import * as gotifyModule from '#core/gotify'
 import { storage as testMemoryStorage } from '#core/storage'
 import {
   BASE_URL,
@@ -661,6 +662,67 @@ describe('Eva Task Module', () => {
       expect(result.errors?.['notify:5310000100278003']).toBeDefined()
 
       spySendToBark.mockRestore()
+    })
+
+    it('should send Gotify notification when notifyGotify is true', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { selectedSkuStock: 10 },
+      } satisfies EvaDynamicResponse)
+
+      const mockClient = { get: mockGet } as unknown as HttpClient
+
+      const spySendToGotify = vi.spyOn(gotifyModule, 'sendToGotify').mockResolvedValue({
+        id: 1,
+        appid: 1,
+        message: '',
+        priority: 5,
+        date: '',
+      })
+
+      const result = await runEvaStockCheck({
+        skus: ['5310000100278003'],
+        notifyGotify: true,
+        gotifyPriority: 8,
+        fetchOptions: { client: mockClient },
+      })
+
+      expect(result.hasStock).toBe(true)
+      expect(spySendToGotify).toHaveBeenCalledTimes(1)
+      expect(spySendToGotify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          priority: 8,
+          extras: expect.objectContaining({
+            'client::display': { contentType: 'text/markdown' },
+          }),
+        }),
+        undefined,
+      )
+
+      spySendToGotify.mockRestore()
+    })
+
+    it('should catch and record Gotify notification error per SKU without failing query', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { selectedSkuStock: 5 },
+      } satisfies EvaDynamicResponse)
+
+      const mockClient = { get: mockGet } as unknown as HttpClient
+
+      const spySendToGotify = vi.spyOn(gotifyModule, 'sendToGotify').mockRejectedValue(new Error('Gotify push failed'))
+
+      const result = await runEvaStockCheck({
+        skus: ['5310000100278003'],
+        notifyGotify: true,
+        fetchOptions: { client: mockClient },
+      })
+
+      expect(result.hasStock).toBe(true)
+      expect(result.stocks['5310000100278003']?.stock).toBe(5)
+      expect(result.errors?.['notifyGotify:5310000100278003']).toBeDefined()
+
+      spySendToGotify.mockRestore()
     })
   })
 

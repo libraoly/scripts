@@ -1,6 +1,7 @@
 import consola from 'consola'
 
 import { sendToBark } from '#core/bark'
+import { sendToGotify } from '#core/gotify'
 import { storage as defaultStorage } from '#core/storage'
 
 import { fetchEvaStock } from './api'
@@ -107,19 +108,47 @@ export async function runEvaStockCheck(options: EvaStockCheckOptions = {}): Prom
         const title = typeof notifyTitle === 'function' ? notifyTitle(event) : (notifyTitle ?? event.title)
         const body = typeof notifyMessage === 'function' ? notifyMessage(event) : (notifyMessage ?? event.message)
 
-        try {
-          await sendToBark({
-            title,
-            body,
-            url: notifyUrl,
-            group: notifyGroup,
-            level: notifyLevel,
-            ...(notifyIcon ? { icon: notifyIcon } : {}),
-          })
-          logger.success(`[${info.skuName}] Bark 通知发送成功 (${event.eventType}): ${title}`)
-        } catch (err) {
-          errors[`notify:${skuId}`] = err
-          logger.warn(`[${info.skuName}] 发送 Bark 通知失败:`, err)
+        if (options.notify) {
+          try {
+            await sendToBark({
+              title,
+              body,
+              url: notifyUrl,
+              group: notifyGroup,
+              level: notifyLevel,
+              ...(notifyIcon ? { icon: notifyIcon } : {}),
+            })
+            logger.success(`[${info.skuName}] Bark 通知发送成功 (${event.eventType}): ${title}`)
+          } catch (err) {
+            errors[`notify:${skuId}`] = err
+            errors[`notifyBark:${skuId}`] = err
+            logger.warn(`[${info.skuName}] 发送 Bark 通知失败:`, err)
+          }
+        }
+
+        if (options.notifyGotify) {
+          try {
+            const gotifyOpt = typeof options.notifyGotify === 'object' ? options.notifyGotify : undefined
+            await sendToGotify(
+              {
+                title,
+                message: body,
+                ...(options.gotifyPriority !== undefined ? { priority: options.gotifyPriority } : {}),
+                extras: {
+                  'client::display': { contentType: 'text/markdown' },
+                  ...(notifyUrl ? { 'client::notification': { click: { url: notifyUrl } } } : {}),
+                },
+              },
+              gotifyOpt,
+            )
+            logger.success(`[${info.skuName}] Gotify 通知发送成功 (${event.eventType}): ${title}`)
+          } catch (err) {
+            errors[`notifyGotify:${skuId}`] = err
+            if (!errors[`notify:${skuId}`]) {
+              errors[`notify:${skuId}`] = err
+            }
+            logger.warn(`[${info.skuName}] 发送 Gotify 通知失败:`, err)
+          }
         }
       }
     } catch (error) {

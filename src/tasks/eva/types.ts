@@ -1,5 +1,6 @@
 import type { BarkInterruptionLevel } from '#core/bark'
 import type { HttpClient, KyOptions } from '#core/client'
+import type { GotifyOptions } from '#core/gotify'
 import type { Storage } from '#core/storage'
 
 import type { EvaSkuId } from './constants'
@@ -169,6 +170,10 @@ export interface EvaStockCheckOptions {
   notifyLevel?: BarkInterruptionLevel
   /** 自定义 Bark 图标 URL */
   notifyIcon?: string
+  /** 是否发送 Gotify 消息通知，默认 false；亦可传入特定 Gotify 配置 */
+  notifyGotify?: boolean | GotifyOptions
+  /** 自定义 Gotify 消息优先级 (0 - 10) */
+  gotifyPriority?: number
 }
 
 export interface EvaStockCheckResult {

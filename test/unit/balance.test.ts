@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import * as barkModule from '#core/bark'
 import type { HttpClient } from '#core/client'
+import * as gotifyModule from '#core/gotify'
 import { runBalanceCheck } from '#tasks/balance'
 import { fetchBalance } from '#tasks/balance/api'
 import { BASE_URL, COMMON_FORM, HEADERS, TableName } from '#tasks/balance/constants'
@@ -429,6 +430,82 @@ describe('Balance Module', () => {
       })
 
       spySendToBark.mockRestore()
+    })
+
+    it('should send Gotify notification when notifyGotify is true', async () => {
+      process.env.ELECTRICITY_CARNO = 'elec_carno'
+      process.env.ELECTRICITY_TABLE_ID = 'elec_id'
+      process.env.WATER_CARNO = 'water_carno'
+      process.env.WATER_TABLE_ID = 'water_id'
+
+      const mockClient = {
+        postForm: vi
+          .fn()
+          .mockResolvedValueOnce({ body: { data: { balance: '120.50' } } })
+          .mockResolvedValueOnce({ body: { data: { balance: '45.20' } } }),
+      } as unknown as HttpClient
+
+      const spySendToGotify = vi.spyOn(gotifyModule, 'sendToGotify').mockResolvedValue({
+        id: 1,
+        appid: 1,
+        message: '',
+        priority: 5,
+        date: '',
+      })
+
+      const result = await runBalanceCheck({
+        electricity: { client: mockClient },
+        water: { client: mockClient },
+        notifyGotify: true,
+        notifyTitle: 'Gotify水电余额',
+        gotifyPriority: 7,
+      })
+
+      expect(result.success).toBe(true)
+      expect(spySendToGotify).toHaveBeenCalledTimes(1)
+      expect(spySendToGotify).toHaveBeenCalledWith(
+        {
+          title: 'Gotify水电余额',
+          message: '⚡ **电费余额**: 120.50 元\n💧 **水费余额**: 45.20 元',
+          priority: 7,
+          extras: {
+            'client::display': { contentType: 'text/markdown' },
+          },
+        },
+        undefined,
+      )
+
+      spySendToGotify.mockRestore()
+    })
+
+    it('should isolate Gotify notification failure without failing query success', async () => {
+      process.env.ELECTRICITY_CARNO = 'elec_carno'
+      process.env.ELECTRICITY_TABLE_ID = 'elec_id'
+      process.env.WATER_CARNO = 'water_carno'
+      process.env.WATER_TABLE_ID = 'water_id'
+
+      const mockClient = {
+        postForm: vi
+          .fn()
+          .mockResolvedValueOnce({ body: { data: { balance: '120.50' } } })
+          .mockResolvedValueOnce({ body: { data: { balance: '45.20' } } }),
+      } as unknown as HttpClient
+
+      const spySendToGotify = vi
+        .spyOn(gotifyModule, 'sendToGotify')
+        .mockRejectedValue(new Error('Gotify network error'))
+
+      const result = await runBalanceCheck({
+        electricity: { client: mockClient },
+        water: { client: mockClient },
+        notifyGotify: true,
+      })
+
+      expect(result.success).toBe(true)
+      expect(result.errors?.notifyGotify).toBeDefined()
+      expect(result.errors?.notify).toBeDefined()
+
+      spySendToGotify.mockRestore()
     })
   })
 

@@ -1,4 +1,5 @@
 import type { HttpClient, KyOptions } from '#core/client'
+import type { GotifyOptions } from '#core/gotify'
 
 import type { TableName } from './constants'
 
@@ -60,12 +61,16 @@ export interface BalanceCheckOptions {
   water?: boolean | Partial<FetchBalanceOptions>
   /** 是否发送 Bark 推送通知，默认 false */
   notify?: boolean
-  /** 自定义 Bark 标题，默认 '水电费余额通知' */
+  /** 自定义通知标题，默认 '水电费余额通知' */
   notifyTitle?: string
   /** 自定义 Bark 分组名 */
   notifyGroup?: string
   /** 自定义 Bark 图标 URL */
   notifyIcon?: string
+  /** 是否发送 Gotify 消息通知，默认 false；亦可传入特定 Gotify 配置 */
+  notifyGotify?: boolean | GotifyOptions
+  /** 自定义 Gotify 消息优先级 (0 - 10) */
+  gotifyPriority?: number
 }
 
 export interface BalanceCheckResult {
@@ -82,5 +87,7 @@ export interface BalanceCheckResult {
     electricity?: unknown
     water?: unknown
     notify?: unknown
+    notifyBark?: unknown
+    notifyGotify?: unknown
   }
 }
