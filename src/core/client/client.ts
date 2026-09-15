@@ -1,44 +1,6 @@
-import ky, {
-  type KyInstance,
-  type Options as KyOptions,
-  type ResponsePromise,
-  HTTPError,
-  TimeoutError,
-  NetworkError,
-} from 'ky'
+import ky from 'ky'
 
-export { HTTPError, TimeoutError, NetworkError }
-export type { KyInstance, KyOptions, ResponsePromise }
-
-export interface HttpClientOptions extends KyOptions {
-  /** 可选注入已存在的 ky 实例（主要用于测试 mock） */
-  kyInstance?: KyInstance
-}
-
-export interface HttpClient {
-  /** 底层 Ky 实例 */
-  readonly raw: KyInstance
-  /** 发起底层通用请求 */
-  request(url: string | URL | Request, options?: KyOptions): ResponsePromise
-  /** 发起 GET 请求并直接解析 JSON */
-  get<T = unknown>(url: string | URL | Request, options?: KyOptions): Promise<T>
-  /** 发起 POST 请求并直接解析 JSON */
-  post<T = unknown>(url: string | URL | Request, options?: KyOptions): Promise<T>
-  /** 发起 POST application/x-www-form-urlencoded 表单请求并解析 JSON */
-  postForm<T = unknown>(
-    url: string | URL | Request,
-    data: Record<string, unknown> | URLSearchParams,
-    options?: KyOptions,
-  ): Promise<T>
-  /** 发起 PUT 请求并直接解析 JSON */
-  put<T = unknown>(url: string | URL | Request, options?: KyOptions): Promise<T>
-  /** 发起 PATCH 请求并直接解析 JSON */
-  patch<T = unknown>(url: string | URL | Request, options?: KyOptions): Promise<T>
-  /** 发起 DELETE 请求并直接解析 JSON */
-  delete<T = unknown>(url: string | URL | Request, options?: KyOptions): Promise<T>
-  /** 扩展当前 client 配置生成新的 client 实例 */
-  extend(options: KyOptions | ((currentOptions: KyOptions) => KyOptions)): HttpClient
-}
+import type { HttpClient, HttpClientOptions, KyOptions } from './types'
 
 /**
  * 将对象键值对转换为 URLSearchParams，自动过滤 null 与 undefined

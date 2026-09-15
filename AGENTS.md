@@ -35,12 +35,24 @@
 ```text
 src/
 ├── core/                        # [内部基础设施层]：严禁对外导出！仅供内部任务通过 #core/* 按需调用
-│   ├── env.ts                   # 环境变量读取器（基于 std-env + destr，严格类型推断）
-│   ├── utils.ts                 # 通用非业务工具（如异步 sleep）
-│   ├── client.ts                # 基于 ky 封装的高级 HTTP 客户端
-│   ├── bark.ts                  # iOS Bark 消息推送客户端
-│   ├── gotify.ts                # Gotify 自建消息推送服务客户端
-│   └── storage.ts               # 基于 unstorage 的统一本地持久化存储
+│   ├── client/                  # 基于 ky 封装的高级 HTTP 客户端子层
+│   │   ├── client.ts
+│   │   ├── types.ts
+│   │   └── index.ts
+│   ├── env/                     # 环境变量读取器子层（基于 std-env + destr，严格类型推断）
+│   │   ├── env.ts
+│   │   └── index.ts
+│   ├── notify/                  # 消息推送服务统一子层
+│   │   ├── bark.ts              # iOS Bark 消息推送客户端
+│   │   ├── gotify.ts            # Gotify 自建消息推送服务客户端
+│   │   ├── types.ts             # 任务通知渠道基础选项与接口
+│   │   └── index.ts             # 统一聚合导出
+│   ├── storage/                 # 基于 unstorage 的统一本地持久化存储子层
+│   │   ├── storage.ts
+│   │   └── index.ts
+│   └── utils/                   # 通用非业务工具子层（如异步 sleep）
+│       ├── sleep.ts
+│       └── index.ts
 ├── tasks/                       # [自动化任务业务层]：每个业务为独立子目录，对外暴露业务能力
 │   └── balance/                 # 水电费余额查询与巡检任务
 │       ├── constants.ts         # 业务常量、URL、默认 Form 参数、请求头
@@ -56,7 +68,7 @@ src/
 
 1. **🚫 核心铁律：`core` 层严禁对外导出**：
    - **本项目是私人自动化任务脚本库，绝不是通用的基础公共 SDK**。
-   - `src/core/` 下的所有模块（`client.ts`, `bark.ts`, `env.ts`, `utils.ts`）属于**内部私有基础设施**，仅用于各任务模块内部通过 Node Subpath Imports（`#core/*`）按需消费。
+   - `src/core/` 下的所有子层（`#core/client`, `#core/notify/*`, `#core/env`, `#core/utils`, `#core/storage`）属于**内部私有基础设施**，仅用于各任务模块内部通过 Node Subpath Imports（`#core/*`）按需消费。
    - **严禁** 在 `src/index.ts` 中导出任何 `core` 内容！
    - **严禁** 在 `package.json` 的 `exports` 中暴露 `./core` 或相关导出！外部调用者只需要关注具体的自动化任务（如水电费余额巡检）。
 2. **业务任务模块导出**：

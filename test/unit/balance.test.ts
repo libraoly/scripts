@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import * as barkModule from '#core/bark'
 import type { HttpClient } from '#core/client'
-import * as gotifyModule from '#core/gotify'
+import * as barkModule from '#core/notify/bark'
+import * as gotifyModule from '#core/notify/gotify'
 import { runBalanceCheck } from '#tasks/balance'
 import { fetchBalance } from '#tasks/balance/api'
 import { BASE_URL, COMMON_FORM, HEADERS, TableName } from '#tasks/balance/constants'
@@ -379,25 +379,32 @@ describe('Balance Module', () => {
       const result = await runBalanceCheck({
         electricity: { client: mockClient },
         water: { client: mockClient },
-        notify: true,
+        bark: {
+          group: 'CustomGroup',
+          icon: 'https://example.com/custom-icon.png',
+        },
         notifyTitle: '余额通知',
-        notifyGroup: 'CustomGroup',
-        notifyIcon: 'https://example.com/custom-icon.png',
       })
 
       expect(result.success).toBe(true)
       expect(spySendToBark).toHaveBeenCalledTimes(1)
-      expect(spySendToBark).toHaveBeenCalledWith({
-        title: '余额通知',
-        body: '⚡ 电费余额: 120.50 元\n💧 水费余额: 45.20 元',
-        group: 'CustomGroup',
-        icon: 'https://example.com/custom-icon.png',
-      })
+      expect(spySendToBark).toHaveBeenCalledWith(
+        {
+          title: '余额通知',
+          body: '⚡ 电费余额: 120.50 元\n💧 水费余额: 45.20 元',
+          group: 'CustomGroup',
+          icon: 'https://example.com/custom-icon.png',
+        },
+        {
+          group: 'CustomGroup',
+          icon: 'https://example.com/custom-icon.png',
+        },
+      )
 
       spySendToBark.mockRestore()
     })
 
-    it('should send notification with defaults when notifyGroup and notifyIcon are omitted', async () => {
+    it('should send notification with defaults when bark is true', async () => {
       process.env.ELECTRICITY_CARNO = 'elec_carno'
       process.env.ELECTRICITY_TABLE_ID = 'elec_id'
       process.env.WATER_CARNO = 'water_carno'
@@ -419,7 +426,7 @@ describe('Balance Module', () => {
       const result = await runBalanceCheck({
         electricity: { client: mockClient },
         water: { client: mockClient },
-        notify: true,
+        bark: true,
       })
 
       expect(result.success).toBe(true)
@@ -432,7 +439,7 @@ describe('Balance Module', () => {
       spySendToBark.mockRestore()
     })
 
-    it('should send Gotify notification when notifyGotify is true', async () => {
+    it('should send Gotify notification when gotify is configured', async () => {
       process.env.ELECTRICITY_CARNO = 'elec_carno'
       process.env.ELECTRICITY_TABLE_ID = 'elec_id'
       process.env.WATER_CARNO = 'water_carno'
@@ -456,9 +463,10 @@ describe('Balance Module', () => {
       const result = await runBalanceCheck({
         electricity: { client: mockClient },
         water: { client: mockClient },
-        notifyGotify: true,
+        gotify: {
+          priority: 7,
+        },
         notifyTitle: 'Gotify水电余额',
-        gotifyPriority: 7,
       })
 
       expect(result.success).toBe(true)
@@ -472,7 +480,9 @@ describe('Balance Module', () => {
             'client::display': { contentType: 'text/markdown' },
           },
         },
-        undefined,
+        {
+          priority: 7,
+        },
       )
 
       spySendToGotify.mockRestore()
@@ -498,13 +508,125 @@ describe('Balance Module', () => {
       const result = await runBalanceCheck({
         electricity: { client: mockClient },
         water: { client: mockClient },
-        notifyGotify: true,
+        gotify: true,
       })
 
       expect(result.success).toBe(true)
       expect(result.errors?.notifyGotify).toBeDefined()
       expect(result.errors?.notify).toBeDefined()
 
+      spySendToGotify.mockRestore()
+    })
+
+    it('should support direct channel parameters with both bark: true and gotify: true', async () => {
+      process.env.ELECTRICITY_CARNO = 'elec_carno'
+      process.env.ELECTRICITY_TABLE_ID = 'elec_id'
+      process.env.WATER_CARNO = 'water_carno'
+      process.env.WATER_TABLE_ID = 'water_id'
+
+      const mockClient = {
+        postForm: vi
+          .fn()
+          .mockResolvedValueOnce({ body: { data: { balance: '100.00' } } })
+          .mockResolvedValueOnce({ body: { data: { balance: '50.00' } } }),
+      } as unknown as HttpClient
+
+      const spySendToBark = vi.spyOn(barkModule, 'sendToBark').mockResolvedValue({
+        code: 200,
+        message: 'success',
+        timestamp: 1700000000,
+      })
+      const spySendToGotify = vi.spyOn(gotifyModule, 'sendToGotify').mockResolvedValue({
+        id: 1,
+        appid: 1,
+        message: '',
+        priority: 5,
+        date: '',
+      })
+
+      const result = await runBalanceCheck({
+        electricity: { client: mockClient },
+        water: { client: mockClient },
+        bark: true,
+        gotify: true,
+        notifyTitle: '直接渠道通知',
+      })
+
+      expect(result.success).toBe(true)
+      expect(spySendToBark).toHaveBeenCalledTimes(1)
+      expect(spySendToBark).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: '直接渠道通知',
+          body: '⚡ 电费余额: 100.00 元\n💧 水费余额: 50.00 元',
+        }),
+      )
+      expect(spySendToGotify).toHaveBeenCalledTimes(1)
+      expect(spySendToGotify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: '直接渠道通知',
+          message: '⚡ **电费余额**: 100.00 元\n💧 **水费余额**: 50.00 元',
+        }),
+      )
+
+      spySendToBark.mockRestore()
+      spySendToGotify.mockRestore()
+    })
+
+    it('should support custom obj configurations for direct channel parameters', async () => {
+      process.env.ELECTRICITY_CARNO = 'elec_carno'
+      process.env.ELECTRICITY_TABLE_ID = 'elec_id'
+      process.env.WATER_CARNO = 'water_carno'
+      process.env.WATER_TABLE_ID = 'water_id'
+
+      const mockClient = {
+        postForm: vi
+          .fn()
+          .mockResolvedValueOnce({ body: { data: { balance: '200.00' } } })
+          .mockResolvedValueOnce({ body: { data: { balance: '80.00' } } }),
+      } as unknown as HttpClient
+
+      const spySendToBark = vi.spyOn(barkModule, 'sendToBark').mockResolvedValue({
+        code: 200,
+        message: 'success',
+        timestamp: 1700000000,
+      })
+      const spySendToGotify = vi.spyOn(gotifyModule, 'sendToGotify').mockResolvedValue({
+        id: 1,
+        appid: 1,
+        message: '',
+        priority: 5,
+        date: '',
+      })
+
+      const result = await runBalanceCheck({
+        electricity: { client: mockClient },
+        water: { client: mockClient },
+        bark: { group: '生活缴费', icon: 'https://icon.png' },
+        gotify: { priority: 9, appToken: 'token-abc' },
+      })
+
+      expect(result.success).toBe(true)
+      expect(spySendToBark).toHaveBeenCalledWith(
+        expect.objectContaining({
+          group: '生活缴费',
+          icon: 'https://icon.png',
+        }),
+        {
+          group: '生活缴费',
+          icon: 'https://icon.png',
+        },
+      )
+      expect(spySendToGotify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          priority: 9,
+        }),
+        {
+          priority: 9,
+          appToken: 'token-abc',
+        },
+      )
+
+      spySendToBark.mockRestore()
       spySendToGotify.mockRestore()
     })
   })

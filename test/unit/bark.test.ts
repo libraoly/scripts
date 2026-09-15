@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-import { sendToBark, createBarkClient, type BarkPayload, DEFAULT_BARK_GROUP, DEFAULT_BARK_ICON } from '#core/bark'
 import { httpClient, type HttpClient } from '#core/client'
+import {
+  sendToBark,
+  createBarkClient,
+  type BarkPayload,
+  DEFAULT_BARK_GROUP,
+  DEFAULT_BARK_ICON,
+} from '#core/notify/bark'
 
 describe('Bark Push Notification Client', () => {
   let mockPost: ReturnType<typeof vi.spyOn>
@@ -9,7 +15,6 @@ describe('Bark Push Notification Client', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     delete process.env.BARK_API_BASE
-    delete process.env.BARK_DEVICE_KEY
     delete process.env.BARK_DEVICE_KEYS
     delete process.env.BARK_GROUP
     delete process.env.BARK_ICON
@@ -24,17 +29,16 @@ describe('Bark Push Notification Client', () => {
   afterEach(() => {
     mockPost?.mockRestore()
     delete process.env.BARK_API_BASE
-    delete process.env.BARK_DEVICE_KEY
     delete process.env.BARK_DEVICE_KEYS
     delete process.env.BARK_GROUP
     delete process.env.BARK_ICON
   })
 
   describe('Single Device Key Routing (Full URL)', () => {
-    it('should route to full URL when single key provided via options.deviceKey', async () => {
+    it('should route to full URL when single key provided via options.deviceKeys', async () => {
       const res = await sendToBark('Hello World', {
         apiBase: 'https://api.day.app',
-        deviceKey: 'my_test_key',
+        deviceKeys: ['my_test_key'],
       })
 
       expect(mockPost).toHaveBeenCalledTimes(1)
@@ -95,8 +99,8 @@ describe('Bark Push Notification Client', () => {
       )
     })
 
-    it('should route to full URL when resolved from BARK_DEVICE_KEY environment variable', async () => {
-      process.env.BARK_DEVICE_KEY = 'env_device_key'
+    it('should route to full URL when resolved from BARK_DEVICE_KEYS environment variable', async () => {
+      process.env.BARK_DEVICE_KEYS = 'env_device_key'
 
       await sendToBark('Env Test')
 
@@ -138,7 +142,7 @@ describe('Bark Push Notification Client', () => {
       }
 
       await sendToBark(payload, {
-        deviceKey: 'my_test_key',
+        deviceKeys: ['my_test_key'],
       })
 
       expect(mockPost).toHaveBeenCalledWith(
@@ -193,44 +197,8 @@ describe('Bark Push Notification Client', () => {
       )
     })
 
-    it('should route to /push when options.deviceKey is comma-separated string', async () => {
-      await sendToBark('Comma keys', {
-        deviceKey: 'k1, k2, k3',
-      })
-
-      expect(mockPost).toHaveBeenCalledWith(
-        'https://api.day.app/push',
-        expect.objectContaining({
-          json: {
-            body: 'Comma keys',
-            device_keys: ['k1', 'k2', 'k3'],
-            group: DEFAULT_BARK_GROUP,
-            icon: DEFAULT_BARK_ICON,
-          },
-        }),
-      )
-    })
-
-    it('should route to /push when options.deviceKey is string array with multiple items', async () => {
-      await sendToBark('Array keys', {
-        deviceKey: ['k1', 'k2'],
-      })
-
-      expect(mockPost).toHaveBeenCalledWith(
-        'https://api.day.app/push',
-        expect.objectContaining({
-          json: {
-            body: 'Array keys',
-            device_keys: ['k1', 'k2'],
-            group: DEFAULT_BARK_GROUP,
-            icon: DEFAULT_BARK_ICON,
-          },
-        }),
-      )
-    })
-
-    it('should route to /push when environment variable BARK_DEVICE_KEY contains multiple comma-separated keys', async () => {
-      process.env.BARK_DEVICE_KEY = 'env1, env2'
+    it('should route to /push when environment variable BARK_DEVICE_KEYS contains multiple comma-separated keys', async () => {
+      process.env.BARK_DEVICE_KEYS = 'env1, env2'
 
       await sendToBark('Multi Env Test')
 
@@ -247,16 +215,16 @@ describe('Bark Push Notification Client', () => {
       )
     })
 
-    it('should route to /push when environment variable BARK_DEVICE_KEYS is used', async () => {
-      process.env.BARK_DEVICE_KEYS = 'key_a, key_b'
+    it('should route to /push when environment variable BARK_DEVICE_KEYS is a JSON array string', async () => {
+      process.env.BARK_DEVICE_KEYS = '["key_a", "key_b"]'
 
-      await sendToBark('BARK_DEVICE_KEYS Test')
+      await sendToBark('BARK_DEVICE_KEYS JSON Test')
 
       expect(mockPost).toHaveBeenCalledWith(
         'https://api.day.app/push',
         expect.objectContaining({
           json: {
-            body: 'BARK_DEVICE_KEYS Test',
+            body: 'BARK_DEVICE_KEYS JSON Test',
             device_keys: ['key_a', 'key_b'],
             group: DEFAULT_BARK_GROUP,
             icon: DEFAULT_BARK_ICON,
@@ -265,18 +233,17 @@ describe('Bark Push Notification Client', () => {
       )
     })
 
-    it('should merge and deduplicate when both BARK_DEVICE_KEY and BARK_DEVICE_KEYS are set simultaneously', async () => {
-      process.env.BARK_DEVICE_KEY = 'key_1, key_overlap'
-      process.env.BARK_DEVICE_KEYS = 'key_2, key_overlap'
+    it('should deduplicate keys when BARK_DEVICE_KEYS contains repeated keys', async () => {
+      process.env.BARK_DEVICE_KEYS = 'key_1, key_2, key_1'
 
-      await sendToBark('Dual Env Merge Test')
+      await sendToBark('Deduplication Test')
 
       expect(mockPost).toHaveBeenCalledWith(
         'https://api.day.app/push',
         expect.objectContaining({
           json: {
-            body: 'Dual Env Merge Test',
-            device_keys: ['key_2', 'key_overlap', 'key_1'],
+            body: 'Deduplication Test',
+            device_keys: ['key_1', 'key_2'],
             group: DEFAULT_BARK_GROUP,
             icon: DEFAULT_BARK_ICON,
           },
@@ -289,7 +256,7 @@ describe('Bark Push Notification Client', () => {
     it('should normalize trailing slashes and /push in apiBase host', async () => {
       await sendToBark('Normalize Host Test', {
         apiBase: 'https://custom.bark.host/push/',
-        deviceKey: 'my_key',
+        deviceKeys: ['my_key'],
       })
 
       expect(mockPost).toHaveBeenCalledWith(
@@ -308,7 +275,7 @@ describe('Bark Push Notification Client', () => {
       await expect(
         sendToBark('Invalid Host', {
           apiBase: 'not-a-valid-url',
-          deviceKey: 'my_key',
+          deviceKeys: ['my_key'],
         }),
       ).rejects.toThrow(/Invalid base host URL/i)
     })
@@ -318,7 +285,7 @@ describe('Bark Push Notification Client', () => {
         sendToBark('No Key Test', {
           apiBase: 'https://api.day.app',
         }),
-      ).rejects.toThrow(/Missing device_key/i)
+      ).rejects.toThrow(/Missing device_keys/i)
     })
 
     it('should throw error when Bark server returns non-200 code', async () => {
@@ -330,7 +297,7 @@ describe('Bark Push Notification Client', () => {
 
       await expect(
         sendToBark('Failed Test', {
-          deviceKey: 'invalid_key',
+          deviceKeys: ['invalid_key'],
         }),
       ).rejects.toThrow(/Bark request failed \[400\]: failed to get device token/)
     })
@@ -340,7 +307,7 @@ describe('Bark Push Notification Client', () => {
     it('should create client with default options via createBarkClient', async () => {
       const client = createBarkClient({
         apiBase: 'https://api.day.app',
-        deviceKey: 'client_key',
+        deviceKeys: ['client_key'],
       })
 
       await client.send('Message via Client')
@@ -366,7 +333,7 @@ describe('Bark Push Notification Client', () => {
       const customClient = { post: customPost } as unknown as HttpClient
 
       await sendToBark('Custom Client Message', {
-        deviceKey: 'custom_key',
+        deviceKeys: ['custom_key'],
         client: customClient,
       })
 
@@ -392,7 +359,7 @@ describe('Bark Push Notification Client', () => {
       const customClient = { post: customPost } as unknown as HttpClient
 
       const client = createBarkClient({
-        deviceKey: 'custom_key',
+        deviceKeys: ['custom_key'],
         client: customClient,
       })
 
@@ -413,7 +380,7 @@ describe('Bark Push Notification Client', () => {
 
   describe('Default Group and Icon Configuration', () => {
     it('should attach default group and icon when none are provided', async () => {
-      await sendToBark('Default test', { deviceKey: 'test_key' })
+      await sendToBark('Default test', { deviceKeys: ['test_key'] })
 
       expect(mockPost).toHaveBeenCalledWith(
         'https://api.day.app/test_key',
@@ -429,7 +396,7 @@ describe('Bark Push Notification Client', () => {
 
     it('should allow overriding group and icon via options', async () => {
       await sendToBark('Options override test', {
-        deviceKey: 'test_key',
+        deviceKeys: ['test_key'],
         group: 'CustomOptionsGroup',
         icon: 'https://example.com/custom-options.png',
       })
@@ -454,7 +421,7 @@ describe('Bark Push Notification Client', () => {
           icon: 'https://example.com/custom-payload.png',
         },
         {
-          deviceKey: 'test_key',
+          deviceKeys: ['test_key'],
           group: 'ShouldBeOverriddenGroup',
           icon: 'https://example.com/should-be-overridden.png',
         },
@@ -476,7 +443,7 @@ describe('Bark Push Notification Client', () => {
       process.env.BARK_GROUP = 'EnvGroup'
       process.env.BARK_ICON = 'https://example.com/env-icon.png'
 
-      await sendToBark('Env test', { deviceKey: 'test_key' })
+      await sendToBark('Env test', { deviceKeys: ['test_key'] })
 
       expect(mockPost).toHaveBeenCalledWith(
         'https://api.day.app/test_key',
@@ -495,7 +462,7 @@ describe('Bark Push Notification Client', () => {
       process.env.BARK_ICON = 'https://example.com/env-icon.png'
 
       await sendToBark('Options vs Env test', {
-        deviceKey: 'test_key',
+        deviceKeys: ['test_key'],
         group: 'OptionsGroup',
         icon: 'https://example.com/options-icon.png',
       })
@@ -514,7 +481,7 @@ describe('Bark Push Notification Client', () => {
 
     it('should configure default group and icon via createBarkClient', async () => {
       const client = createBarkClient({
-        deviceKey: 'test_key',
+        deviceKeys: ['test_key'],
         group: 'ClientDefaultGroup',
         icon: 'https://example.com/client-icon.png',
       })

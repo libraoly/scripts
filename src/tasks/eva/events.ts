@@ -93,9 +93,12 @@ export function determineStockEvent(
  * 判断指定 SKU 事件是否应当触发通知推送
  */
 export function shouldNotifySku(event: SkuStockEvent, options: EvaStockCheckOptions): boolean {
-  const { notify = false, notifyGotify = false, notifyPolicy = 'onChange', onlyInStock } = options
+  const { bark, gotify, notifyPolicy = 'onChange', onlyInStock } = options
 
-  if (!notify && !notifyGotify) {
+  const hasBark = Boolean(bark)
+  const hasGotify = Boolean(gotify)
+
+  if (!hasBark && !hasGotify) {
     return false
   }
 

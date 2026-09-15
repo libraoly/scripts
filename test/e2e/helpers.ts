@@ -18,7 +18,7 @@ export function hasBalanceEnv(): boolean {
  * 判断是否具备 Bark 推送通知所需的设备凭据
  */
 export function hasBarkEnv(): boolean {
-  return Boolean(process.env.BARK_DEVICE_KEY)
+  return Boolean(process.env.BARK_DEVICE_KEYS)
 }
 
 /**

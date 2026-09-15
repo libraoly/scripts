@@ -2,7 +2,6 @@ import { httpClient, type HttpClient, type KyOptions } from '#core/client'
 import { useEnv } from '#core/env'
 
 export const BARK_API_BASE_ENV_NAME = 'BARK_API_BASE'
-export const BARK_DEVICE_KEY_ENV_NAME = 'BARK_DEVICE_KEY'
 export const BARK_DEVICE_KEYS_ENV_NAME = 'BARK_DEVICE_KEYS'
 export const BARK_GROUP_ENV_NAME = 'BARK_GROUP'
 export const BARK_ICON_ENV_NAME = 'BARK_ICON'
@@ -70,14 +69,20 @@ export interface BarkResponse {
 export interface BarkOptions {
   /** 自定义 Bark 服务 Host 基础地址（优先级高于环境变量 BARK_API_BASE，默认为 https://api.day.app） */
   apiBase?: string
-  /** 单个设备 Key 或多个设备 Key 列表（优先级高于环境变量） */
-  deviceKey?: string | string[]
-  /** 多个设备 Key 列表，用于批量推送（优先级高于环境变量） */
+  /** 设备 Key 列表（优先级高于环境变量） */
   deviceKeys?: string[]
   /** 自定义推送分组（优先级高于环境变量 BARK_GROUP，默认为 Scripts） */
   group?: string
   /** 自定义推送图标 URL（优先级高于环境变量 BARK_ICON，默认为特定图标） */
   icon?: string
+  /** 自定义推送跳转 URL */
+  url?: string
+  /** 自定义推送中断级别 */
+  level?: BarkInterruptionLevel
+  /** 自定义推送声音 */
+  sound?: string
+  /** 自定义推送角标 */
+  badge?: number
   /** 请求超时时间（毫秒） */
   timeout?: number
   /** 自定义通用 HTTP 客户端 */
@@ -115,7 +120,6 @@ function parseKeys(input: unknown): string[] {
 function extractDeviceKeys(payload: BarkPayload, options?: BarkOptions): string[] {
   const explicitKeys: string[] = [
     ...parseKeys(options?.deviceKeys),
-    ...parseKeys(options?.deviceKey),
     ...parseKeys(payload.device_keys),
     ...parseKeys(payload.device_key),
   ]
@@ -124,10 +128,7 @@ function extractDeviceKeys(payload: BarkPayload, options?: BarkOptions): string[
     return Array.from(new Set(explicitKeys))
   }
 
-  const envKeys: string[] = [
-    ...parseKeys(useEnv<string | string[]>(BARK_DEVICE_KEYS_ENV_NAME, '')),
-    ...parseKeys(useEnv<string | string[]>(BARK_DEVICE_KEY_ENV_NAME, '')),
-  ]
+  const envKeys: string[] = [...parseKeys(useEnv<string[] | string>(BARK_DEVICE_KEYS_ENV_NAME, []))]
 
   return Array.from(new Set(envKeys))
 }
@@ -163,7 +164,7 @@ function resolveEndpoint(
 
   if (keys.length === 0) {
     throw new Error(
-      '[sendToBark] Missing device_key. Please provide device_key in payload, options, or BARK_DEVICE_KEY environment variable.',
+      '[sendToBark] Missing device_keys. Please provide device_keys in payload, options, or BARK_DEVICE_KEYS environment variable.',
     )
   }
 
@@ -216,17 +217,30 @@ export async function sendToBark(payloadOrBody: string | BarkPayload, options?: 
   const defaultGroup = options?.group ?? (useEnv<string>(BARK_GROUP_ENV_NAME, '') || DEFAULT_BARK_GROUP)
   const defaultIcon = options?.icon ?? (useEnv<string>(BARK_ICON_ENV_NAME, '') || DEFAULT_BARK_ICON)
 
+  const resolvedUrl = typeof payloadOrBody === 'object' ? (payloadOrBody.url ?? options?.url) : options?.url
+  const resolvedLevel = typeof payloadOrBody === 'object' ? (payloadOrBody.level ?? options?.level) : options?.level
+  const resolvedSound = typeof payloadOrBody === 'object' ? (payloadOrBody.sound ?? options?.sound) : options?.sound
+  const resolvedBadge = typeof payloadOrBody === 'object' ? (payloadOrBody.badge ?? options?.badge) : options?.badge
+
   const rawPayload: BarkPayload =
     typeof payloadOrBody === 'string'
       ? {
           body: payloadOrBody,
           group: defaultGroup,
           icon: defaultIcon,
+          ...(resolvedUrl ? { url: resolvedUrl } : {}),
+          ...(resolvedLevel ? { level: resolvedLevel } : {}),
+          ...(resolvedSound ? { sound: resolvedSound } : {}),
+          ...(resolvedBadge !== undefined ? { badge: resolvedBadge } : {}),
         }
       : {
           ...payloadOrBody,
           group: payloadOrBody.group ?? defaultGroup,
           icon: payloadOrBody.icon ?? defaultIcon,
+          ...(resolvedUrl ? { url: resolvedUrl } : {}),
+          ...(resolvedLevel ? { level: resolvedLevel } : {}),
+          ...(resolvedSound ? { sound: resolvedSound } : {}),
+          ...(resolvedBadge !== undefined ? { badge: resolvedBadge } : {}),
         }
   const keys = extractDeviceKeys(rawPayload, options)
 

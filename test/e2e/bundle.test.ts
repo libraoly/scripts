@@ -19,7 +19,7 @@ describe('E2E: Built Bundle & Subprocess Execution', () => {
 
     it.skipIf(!hasBalanceEnv())('should successfully execute runBalanceCheck from ESM bundle', async () => {
       const { runBalanceCheck } = await import('../../dist/balance.mjs')
-      const result = await runBalanceCheck({ notify: false })
+      const result = await runBalanceCheck()
 
       expect(result.success).toBe(true)
       expect(typeof result.electricity).toBe('string')
@@ -39,7 +39,7 @@ describe('E2E: Built Bundle & Subprocess Execution', () => {
     it.skipIf(!hasBalanceEnv())('should successfully execute runBalanceCheck from CJS bundle', async () => {
       const bundlePath = resolve(import.meta.dirname, '../../dist/balance.cjs')
       const { runBalanceCheck } = nodeRequire(bundlePath)
-      const result = await runBalanceCheck({ notify: false })
+      const result = await runBalanceCheck()
 
       expect(result.success).toBe(true)
       expect(typeof result.electricity).toBe('string')
@@ -95,7 +95,7 @@ describe('E2E: Built Bundle & Subprocess Execution', () => {
       async () => {
         const rootDir = resolve(import.meta.dirname, '../..')
         const code = `
-          import('./dist/balance.mjs').then(m => m.runBalanceCheck({ notify: false })).then(res => {
+          import('./dist/balance.mjs').then(m => m.runBalanceCheck()).then(res => {
             if (!res.success) {
               console.error('Balance check failed:', res);
               process.exit(1);
@@ -122,7 +122,7 @@ describe('E2E: Built Bundle & Subprocess Execution', () => {
     it('should run eva stock check successfully in a standalone Node.js process with --env-file', async () => {
       const rootDir = resolve(import.meta.dirname, '../..')
       const code = `
-        import('./dist/eva.mjs').then(m => m.runEvaStockCheck({ notify: false })).then(res => {
+        import('./dist/eva.mjs').then(m => m.runEvaStockCheck()).then(res => {
           if (!res.success) {
             console.error('Eva stock check failed:', res);
             process.exit(1);

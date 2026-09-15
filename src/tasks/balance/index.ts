@@ -1,16 +1,20 @@
 import consola from 'consola'
 
-import { sendToBark } from '#core/bark'
-import { sendToGotify } from '#core/gotify'
+import { sendToBark, type BarkOptions } from '#core/notify/bark'
+import { sendToGotify, type GotifyOptions, type GotifyPayload } from '#core/notify/gotify'
 
 import { getElectricityBalance } from './electricity'
 import type { BalanceCheckOptions, BalanceCheckResult } from './types'
 import { getWaterBalance } from './water'
 
+export * from './types'
+export { getElectricityBalance } from './electricity'
+export { getWaterBalance } from './water'
+
 const logger = consola.withTag('Balance')
 
 /**
- * 执行余额查询任务（可同时查询电费和水费，并支持 Bark / Gotify 通知与日志输出）
+ * 执行余额查询任务（可同时查询电费和水费，并支持 Bark / Gotify 等渠道通知与日志输出）
  *
  * @param options 运行配置选项
  * @returns 查询结果
@@ -19,13 +23,14 @@ export async function runBalanceCheck(options: BalanceCheckOptions = {}): Promis
   const {
     electricity: checkElectricity = true,
     water: checkWater = true,
-    notify = false,
+    bark = false,
+    gotify = false,
     notifyTitle = '水电费余额通知',
-    notifyGroup,
-    notifyIcon,
-    notifyGotify = false,
-    gotifyPriority,
+    notifyMessage,
   } = options
+
+  const shouldSendBark = Boolean(bark)
+  const shouldSendGotify = Boolean(gotify)
 
   let electricityBalance: string | null = null
   let waterBalance: string | null = null
@@ -56,7 +61,8 @@ export async function runBalanceCheck(options: BalanceCheckOptions = {}): Promis
     }
   }
 
-  if (notify) {
+  // 1. 发送 Bark 渠道通知
+  if (shouldSendBark) {
     try {
       const lines: string[] = []
       if (checkElectricity) {
@@ -65,13 +71,26 @@ export async function runBalanceCheck(options: BalanceCheckOptions = {}): Promis
       if (checkWater) {
         lines.push(`💧 水费余额: ${waterBalance ?? '查询失败'} 元`)
       }
-      const body = lines.join('\n')
-      await sendToBark({
+      const body = notifyMessage ?? lines.join('\n')
+
+      const barkOpt: BarkOptions | undefined = typeof bark === 'object' && bark !== null ? bark : undefined
+
+      const barkPayload = {
         title: notifyTitle,
         body,
-        ...(notifyGroup ? { group: notifyGroup } : {}),
-        ...(notifyIcon ? { icon: notifyIcon } : {}),
-      })
+        ...(barkOpt?.group ? { group: barkOpt.group } : {}),
+        ...(barkOpt?.icon ? { icon: barkOpt.icon } : {}),
+        ...(barkOpt?.url ? { url: barkOpt.url } : {}),
+        ...(barkOpt?.level ? { level: barkOpt.level } : {}),
+        ...(barkOpt?.sound ? { sound: barkOpt.sound } : {}),
+        ...(barkOpt?.badge !== undefined ? { badge: barkOpt.badge } : {}),
+      }
+
+      if (barkOpt) {
+        await sendToBark(barkPayload, barkOpt)
+      } else {
+        await sendToBark(barkPayload)
+      }
       logger.success('Bark 通知发送成功')
     } catch (error) {
       errors.notify = error
@@ -80,7 +99,8 @@ export async function runBalanceCheck(options: BalanceCheckOptions = {}): Promis
     }
   }
 
-  if (notifyGotify) {
+  // 2. 发送 Gotify 渠道通知
+  if (shouldSendGotify) {
     try {
       const lines: string[] = []
       if (checkElectricity) {
@@ -89,19 +109,26 @@ export async function runBalanceCheck(options: BalanceCheckOptions = {}): Promis
       if (checkWater) {
         lines.push(`💧 **水费余额**: ${waterBalance ?? '查询失败'} 元`)
       }
-      const message = lines.join('\n')
-      const gotifyOpt = typeof notifyGotify === 'object' ? notifyGotify : undefined
-      await sendToGotify(
-        {
-          title: notifyTitle,
-          message,
-          ...(gotifyPriority !== undefined ? { priority: gotifyPriority } : {}),
-          extras: {
-            'client::display': { contentType: 'text/markdown' },
-          },
+      const message = notifyMessage ?? lines.join('\n')
+
+      const gotifyOpt: GotifyOptions | undefined = typeof gotify === 'object' && gotify !== null ? gotify : undefined
+
+      const priority = typeof gotifyOpt?.priority === 'number' ? gotifyOpt.priority : undefined
+
+      const gotifyPayload: GotifyPayload = {
+        title: notifyTitle,
+        message,
+        ...(priority !== undefined ? { priority } : {}),
+        extras: {
+          'client::display': { contentType: 'text/markdown' },
         },
-        gotifyOpt,
-      )
+      }
+
+      if (gotifyOpt) {
+        await sendToGotify(gotifyPayload, gotifyOpt)
+      } else {
+        await sendToGotify(gotifyPayload)
+      }
       logger.success('Gotify 通知发送成功')
     } catch (error) {
       errors.notifyGotify = error

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-import * as barkModule from '#core/bark'
 import type { HttpClient } from '#core/client'
-import * as gotifyModule from '#core/gotify'
+import * as barkModule from '#core/notify/bark'
+import * as gotifyModule from '#core/notify/gotify'
 import { storage as testMemoryStorage } from '#core/storage'
 import {
   BASE_URL,
@@ -292,11 +292,12 @@ describe('Eva Task Module', () => {
         { skuId: '1', skuName: 'Eva', stock: 0, inStock: false, timestamp: 0, formattedTime: '' },
       )
 
-      expect(shouldNotifySku(restockedEvent, { notify: false })).toBe(false)
-      expect(shouldNotifySku(restockedEvent, { notify: true, notifyPolicy: 'onChange' })).toBe(true)
-      expect(shouldNotifySku(outOfStockEvent, { notify: true, notifyPolicy: 'onChange' })).toBe(true)
-      expect(shouldNotifySku(stillNoStockEvent, { notify: true, notifyPolicy: 'onChange' })).toBe(false)
-      expect(shouldNotifySku(outOfStockEvent, { notify: true, onlyInStock: true })).toBe(false)
+      expect(shouldNotifySku(restockedEvent, { bark: false, gotify: false })).toBe(false)
+      expect(shouldNotifySku(restockedEvent, { bark: true, notifyPolicy: 'onChange' })).toBe(true)
+      expect(shouldNotifySku(restockedEvent, { gotify: true, notifyPolicy: 'onChange' })).toBe(true)
+      expect(shouldNotifySku(outOfStockEvent, { bark: true, notifyPolicy: 'onChange' })).toBe(true)
+      expect(shouldNotifySku(stillNoStockEvent, { bark: true, notifyPolicy: 'onChange' })).toBe(false)
+      expect(shouldNotifySku(outOfStockEvent, { bark: true, onlyInStock: true })).toBe(false)
     })
   })
 
@@ -514,7 +515,7 @@ describe('Eva Task Module', () => {
       })
 
       const result = await runEvaStockCheck({
-        notify: true,
+        bark: true,
         fetchOptions: { client: mockClient },
       })
 
@@ -565,7 +566,7 @@ describe('Eva Task Module', () => {
 
       const result = await runEvaStockCheck({
         skus: ['5310000100278003'],
-        notify: true,
+        bark: true,
         fetchOptions: { client: mockClient },
       })
 
@@ -605,7 +606,7 @@ describe('Eva Task Module', () => {
 
       const result = await runEvaStockCheck({
         skus: ['5310000100278003'],
-        notify: true,
+        bark: true,
         rapidChangeThreshold: 5,
         fetchOptions: { client: mockClient },
       })
@@ -653,7 +654,7 @@ describe('Eva Task Module', () => {
 
       const result = await runEvaStockCheck({
         skus: ['5310000100278003'],
-        notify: true,
+        bark: true,
         fetchOptions: { client: mockClient },
       })
 
@@ -664,7 +665,7 @@ describe('Eva Task Module', () => {
       spySendToBark.mockRestore()
     })
 
-    it('should send Gotify notification when notifyGotify is true', async () => {
+    it('should send Gotify notification when gotify is configured', async () => {
       const mockGet = vi.fn().mockResolvedValue({
         success: true,
         data: { selectedSkuStock: 10 },
@@ -682,8 +683,9 @@ describe('Eva Task Module', () => {
 
       const result = await runEvaStockCheck({
         skus: ['5310000100278003'],
-        notifyGotify: true,
-        gotifyPriority: 8,
+        gotify: {
+          priority: 8,
+        },
         fetchOptions: { client: mockClient },
       })
 
@@ -694,9 +696,12 @@ describe('Eva Task Module', () => {
           priority: 8,
           extras: expect.objectContaining({
             'client::display': { contentType: 'text/markdown' },
+            'client::notification': { click: { url: DEFAULT_JUMP_URL } },
           }),
         }),
-        undefined,
+        {
+          priority: 8,
+        },
       )
 
       spySendToGotify.mockRestore()
@@ -714,7 +719,7 @@ describe('Eva Task Module', () => {
 
       const result = await runEvaStockCheck({
         skus: ['5310000100278003'],
-        notifyGotify: true,
+        gotify: true,
         fetchOptions: { client: mockClient },
       })
 
@@ -722,6 +727,107 @@ describe('Eva Task Module', () => {
       expect(result.stocks['5310000100278003']?.stock).toBe(5)
       expect(result.errors?.['notifyGotify:5310000100278003']).toBeDefined()
 
+      spySendToGotify.mockRestore()
+    })
+
+    it('should support direct channel parameters with both bark: true and gotify: true', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { selectedSkuStock: 15 },
+      } satisfies EvaDynamicResponse)
+
+      const mockClient = { get: mockGet } as unknown as HttpClient
+
+      const spySendToBark = vi.spyOn(barkModule, 'sendToBark').mockResolvedValue({
+        code: 200,
+        message: 'success',
+        timestamp: 1700000000,
+      })
+      const spySendToGotify = vi.spyOn(gotifyModule, 'sendToGotify').mockResolvedValue({
+        id: 1,
+        appid: 1,
+        message: '',
+        priority: 5,
+        date: '',
+      })
+
+      const result = await runEvaStockCheck({
+        skus: ['5310000100278003'],
+        bark: true,
+        gotify: true,
+        notifyTitle: 'Eva 现货提醒',
+        fetchOptions: { client: mockClient },
+      })
+
+      expect(result.hasStock).toBe(true)
+      expect(spySendToBark).toHaveBeenCalledTimes(1)
+      expect(spySendToBark).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Eva 现货提醒',
+        }),
+      )
+      expect(spySendToGotify).toHaveBeenCalledTimes(1)
+      expect(spySendToGotify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Eva 现货提醒',
+        }),
+      )
+
+      spySendToBark.mockRestore()
+      spySendToGotify.mockRestore()
+    })
+
+    it('should support custom obj configurations for direct channel parameters in eva', async () => {
+      const mockGet = vi.fn().mockResolvedValue({
+        success: true,
+        data: { selectedSkuStock: 20 },
+      } satisfies EvaDynamicResponse)
+
+      const mockClient = { get: mockGet } as unknown as HttpClient
+
+      const spySendToBark = vi.spyOn(barkModule, 'sendToBark').mockResolvedValue({
+        code: 200,
+        message: 'success',
+        timestamp: 1700000000,
+      })
+      const spySendToGotify = vi.spyOn(gotifyModule, 'sendToGotify').mockResolvedValue({
+        id: 2,
+        appid: 1,
+        message: '',
+        priority: 9,
+        date: '',
+      })
+
+      const result = await runEvaStockCheck({
+        skus: ['5310000100278003'],
+        bark: { group: '领克机器人', icon: 'https://eva.png' },
+        gotify: { priority: 9, appToken: 'eva-token' },
+        notifyPolicy: 'inStock',
+        fetchOptions: { client: mockClient },
+      })
+
+      expect(result.hasStock).toBe(true)
+      expect(spySendToBark).toHaveBeenCalledWith(
+        expect.objectContaining({
+          group: '领克机器人',
+          icon: 'https://eva.png',
+        }),
+        {
+          group: '领克机器人',
+          icon: 'https://eva.png',
+        },
+      )
+      expect(spySendToGotify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          priority: 9,
+        }),
+        {
+          priority: 9,
+          appToken: 'eva-token',
+        },
+      )
+
+      spySendToBark.mockRestore()
       spySendToGotify.mockRestore()
     })
   })

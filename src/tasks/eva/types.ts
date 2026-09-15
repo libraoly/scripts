@@ -1,6 +1,5 @@
-import type { BarkInterruptionLevel } from '#core/bark'
-import type { HttpClient, KyOptions } from '#core/client'
-import type { GotifyOptions } from '#core/gotify'
+import type { BaseTaskFetchOptions } from '#core/client'
+import type { BaseTaskChannelOptions } from '#core/notify/types'
 import type { Storage } from '#core/storage'
 
 import type { EvaSkuId } from './constants'
@@ -49,7 +48,7 @@ export interface EvaDynamicResponse {
   [key: string]: unknown
 }
 
-export interface FetchEvaStockOptions {
+export interface FetchEvaStockOptions extends BaseTaskFetchOptions {
   /** 商品 ID，默认 5310000100239002 */
   itemId?: string
   /** SKU ID，例如 5310000100278003 (Eva 高亮黑) 或 5310000100278002 (Eva 极地白) */
@@ -66,20 +65,6 @@ export interface FetchEvaStockOptions {
   appCode?: string
   /** 用户登录 Token (可选) */
   token?: string
-  /** 接口基础 URL */
-  baseUrl?: string
-  /** 自定义请求头 */
-  headers?: Record<string, string>
-  /** 超时时间（秒或毫秒，默认 30 秒） */
-  timeout?: number
-  /** 最大尝试次数（包含第一次，默认 3 次） */
-  retries?: number
-  /** 指数退避基数（秒，默认 2 秒） */
-  backoff?: number
-  /** 自定义通用 HTTP 客户端 */
-  client?: HttpClient
-  /** 自定义 ky 配置选项 */
-  kyOptions?: KyOptions
 }
 
 export interface SkuStockInfo {
@@ -134,15 +119,14 @@ export interface SkuStockEvent {
 
 export type EvaNotifyPolicy = 'onChange' | 'inStock' | 'always'
 
-export interface EvaStockCheckOptions {
+export interface EvaStockCheckOptions extends BaseTaskChannelOptions {
   /** 要监控的 SKU ID 列表或自定义 SKU 映射字典，默认监控黑白双色 */
   skus?: (EvaSkuId | string)[] | Record<string, string>
   /** 商品 ID，默认 5310000100239002 */
   itemId?: string
   /** 底层查询配置覆盖 */
   fetchOptions?: Partial<FetchEvaStockOptions>
-  /** 是否发送 Bark 推送通知，默认 false */
-  notify?: boolean
+
   /**
    * 通知触发策略：
    * - 'onChange': 仅在库存状态发生转移或快速变化时通知（如无转有、有转无、急剧减少、补货）（默认）
@@ -152,28 +136,17 @@ export interface EvaStockCheckOptions {
   notifyPolicy?: EvaNotifyPolicy
   /** 是否仅在有库存时通知（若为 true 则抑制无货相关的通知） */
   onlyInStock?: boolean
+  /** 自定义通知标题或动态标题生成函数 */
+  notifyTitle?: string | ((event: SkuStockEvent) => string)
+  /** 自定义通知正文或动态正文生成函数 */
+  notifyMessage?: string | ((event: SkuStockEvent) => string)
+
   /** 触发库存快速减少告警的最小差值阈值，默认 5 件 */
   rapidChangeThreshold?: number
   /** 是否持久化保存本次记录，默认 true */
   saveRecord?: boolean
   /** 自定义 storage 实例，默认使用 core 中的统一 storage */
   storage?: Storage
-  /** 自定义 Bark 标题或动态标题生成函数 */
-  notifyTitle?: string | ((event: SkuStockEvent) => string)
-  /** 自定义 Bark 正文或动态正文生成函数 */
-  notifyMessage?: string | ((event: SkuStockEvent) => string)
-  /** 自定义 Bark 分组名，默认 '领克商城' */
-  notifyGroup?: string
-  /** 自定义 Bark 点击跳转 URL，默认领克商城 Eva 详情页 */
-  notifyUrl?: string
-  /** 自定义 Bark 通知中断级别，默认 'timeSensitive' */
-  notifyLevel?: BarkInterruptionLevel
-  /** 自定义 Bark 图标 URL */
-  notifyIcon?: string
-  /** 是否发送 Gotify 消息通知，默认 false；亦可传入特定 Gotify 配置 */
-  notifyGotify?: boolean | GotifyOptions
-  /** 自定义 Gotify 消息优先级 (0 - 10) */
-  gotifyPriority?: number
 }
 
 export interface EvaStockCheckResult {

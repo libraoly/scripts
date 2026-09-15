@@ -1,7 +1,7 @@
 import type { KyInstance } from 'ky'
 import { describe, it, expect, vi } from 'vitest'
 
-import { createHttpClient, httpClient, toURLSearchParams } from '#core/client'
+import { createHttpClient, httpClient, toURLSearchParams, type BaseTaskFetchOptions } from '#core/client'
 
 describe('toURLSearchParams helper', () => {
   it('should convert an object to URLSearchParams ignoring null and undefined', () => {
@@ -119,5 +119,19 @@ describe('Generic HttpClient', () => {
     const client = createHttpClient({ kyInstance: fakeKy })
     client.extend({ headers: { Authorization: 'Bearer token' } })
     expect(mockExtend).toHaveBeenCalledWith({ headers: { Authorization: 'Bearer token' } })
+  })
+
+  it('should allow constructing valid BaseTaskFetchOptions object', () => {
+    const fetchOptions: BaseTaskFetchOptions = {
+      baseUrl: 'https://api.example.com',
+      headers: { 'X-Custom': 'test' },
+      timeout: 30,
+      retries: 3,
+      backoff: 2,
+      client: httpClient,
+      kyOptions: { prefix: 'https://api.example.com' },
+    }
+    expect(fetchOptions.baseUrl).toBe('https://api.example.com')
+    expect(fetchOptions.headers?.['X-Custom']).toBe('test')
   })
 })

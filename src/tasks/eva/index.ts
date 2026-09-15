@@ -1,7 +1,7 @@
 import consola from 'consola'
 
-import { sendToBark } from '#core/bark'
-import { sendToGotify } from '#core/gotify'
+import { sendToBark, type BarkOptions } from '#core/notify/bark'
+import { sendToGotify, type GotifyOptions, type GotifyPayload } from '#core/notify/gotify'
 import { storage as defaultStorage } from '#core/storage'
 
 import { fetchEvaStock } from './api'
@@ -49,13 +49,14 @@ export async function runEvaStockCheck(options: EvaStockCheckOptions = {}): Prom
     saveRecord = true,
     storage = defaultStorage,
     rapidChangeThreshold,
+    bark = false,
+    gotify = false,
     notifyTitle,
     notifyMessage,
-    notifyGroup = DEFAULT_BARK_GROUP,
-    notifyUrl = DEFAULT_JUMP_URL,
-    notifyLevel = DEFAULT_BARK_LEVEL,
-    notifyIcon,
   } = options
+
+  const shouldSendBark = Boolean(bark)
+  const shouldSendGotify = Boolean(gotify)
 
   const skuEntries = resolveSkuEntries(skus)
   const stocks: Record<string, SkuStockInfo> = {}
@@ -108,16 +109,27 @@ export async function runEvaStockCheck(options: EvaStockCheckOptions = {}): Prom
         const title = typeof notifyTitle === 'function' ? notifyTitle(event) : (notifyTitle ?? event.title)
         const body = typeof notifyMessage === 'function' ? notifyMessage(event) : (notifyMessage ?? event.message)
 
-        if (options.notify) {
+        // 3.1 发送 Bark 通知
+        if (shouldSendBark) {
           try {
-            await sendToBark({
+            const barkOpt: BarkOptions | undefined = typeof bark === 'object' && bark !== null ? bark : undefined
+
+            const barkPayload = {
               title,
               body,
-              url: notifyUrl,
-              group: notifyGroup,
-              level: notifyLevel,
-              ...(notifyIcon ? { icon: notifyIcon } : {}),
-            })
+              url: barkOpt?.url ?? DEFAULT_JUMP_URL,
+              group: barkOpt?.group ?? DEFAULT_BARK_GROUP,
+              level: barkOpt?.level ?? DEFAULT_BARK_LEVEL,
+              ...(barkOpt?.icon ? { icon: barkOpt.icon } : {}),
+              ...(barkOpt?.sound ? { sound: barkOpt.sound } : {}),
+              ...(barkOpt?.badge !== undefined ? { badge: barkOpt.badge } : {}),
+            }
+
+            if (barkOpt) {
+              await sendToBark(barkPayload, barkOpt)
+            } else {
+              await sendToBark(barkPayload)
+            }
             logger.success(`[${info.skuName}] Bark 通知发送成功 (${event.eventType}): ${title}`)
           } catch (err) {
             errors[`notify:${skuId}`] = err
@@ -126,21 +138,31 @@ export async function runEvaStockCheck(options: EvaStockCheckOptions = {}): Prom
           }
         }
 
-        if (options.notifyGotify) {
+        // 3.2 发送 Gotify 通知
+        if (shouldSendGotify) {
           try {
-            const gotifyOpt = typeof options.notifyGotify === 'object' ? options.notifyGotify : undefined
-            await sendToGotify(
-              {
-                title,
-                message: body,
-                ...(options.gotifyPriority !== undefined ? { priority: options.gotifyPriority } : {}),
-                extras: {
-                  'client::display': { contentType: 'text/markdown' },
-                  ...(notifyUrl ? { 'client::notification': { click: { url: notifyUrl } } } : {}),
-                },
+            const gotifyOpt: GotifyOptions | undefined =
+              typeof gotify === 'object' && gotify !== null ? gotify : undefined
+
+            const priority = typeof gotifyOpt?.priority === 'number' ? gotifyOpt.priority : undefined
+
+            const clickUrl = gotifyOpt?.url ?? DEFAULT_JUMP_URL
+
+            const gotifyPayload: GotifyPayload = {
+              title,
+              message: body,
+              ...(priority !== undefined ? { priority } : {}),
+              extras: {
+                'client::display': { contentType: 'text/markdown' },
+                ...(clickUrl ? { 'client::notification': { click: { url: clickUrl } } } : {}),
               },
-              gotifyOpt,
-            )
+            }
+
+            if (gotifyOpt) {
+              await sendToGotify(gotifyPayload, gotifyOpt)
+            } else {
+              await sendToGotify(gotifyPayload)
+            }
             logger.success(`[${info.skuName}] Gotify 通知发送成功 (${event.eventType}): ${title}`)
           } catch (err) {
             errors[`notifyGotify:${skuId}`] = err

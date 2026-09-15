@@ -11,7 +11,7 @@ import {
   GOTIFY_API_BASE_ENV_NAME,
   GOTIFY_APP_TOKEN_ENV_NAME,
   GOTIFY_DEFAULT_PRIORITY_ENV_NAME,
-} from '#core/gotify'
+} from '#core/notify/gotify'
 
 describe('Gotify Push Notification Client', () => {
   let mockPost: ReturnType<typeof vi.spyOn>

@@ -126,7 +126,7 @@ WATER_CARNO=你的水费卡号或户号
 WATER_TABLE_ID=你的水表表号ID
 
 # Bark 推送通知配置
-BARK_DEVICE_KEY=你的Bark设备Key
+BARK_DEVICE_KEYS=你的Bark设备Key列表（支持逗号分隔或 JSON 数组）
 BARK_API_BASE=https://api.day.app
 # 推送分组（默认值为 Scripts）
 BARK_GROUP=Scripts
@@ -157,10 +157,10 @@ pnpm run build
 
 ```bash
 # 执行水电费余额巡检
-node --env-file=.env --input-type=module -e "import('./dist/balance.mjs').then(m => m.runBalanceCheck({ notify: true }))"
+node --env-file=.env --input-type=module -e "import('./dist/balance.mjs').then(m => m.runBalanceCheck({ bark: true }))"
 
 # 执行领克商城 Eva 机器人库存监控（有货时自动发送 Bark 通知）
-node --env-file=.env --input-type=module -e "import('./dist/eva.mjs').then(m => m.runEvaStockCheck({ notify: true }))"
+node --env-file=.env --input-type=module -e "import('./dist/eva.mjs').then(m => m.runEvaStockCheck({ bark: true }))"
 ```
 
 ### 3. 系统定时任务配置
@@ -170,7 +170,7 @@ node --env-file=.env --input-type=module -e "import('./dist/eva.mjs').then(m => 
 每天早晨 08:30 自动执行一次水电费巡检并通过 Bark 发送通知：
 
 ```bash
-30 8 * * * cd /path/to/scripts && /usr/local/bin/node --env-file=.env --input-type=module -e "import('./dist/balance.mjs').then(m => m.runBalanceCheck({ notify: true }))" >> /tmp/balance.log 2>&1
+30 8 * * * cd /path/to/scripts && /usr/local/bin/node --env-file=.env --input-type=module -e "import('./dist/balance.mjs').then(m => m.runBalanceCheck({ bark: true }))" >> /tmp/balance.log 2>&1
 ```
 
 #### macOS launchd 配置示例
@@ -190,7 +190,7 @@ node --env-file=.env --input-type=module -e "import('./dist/eva.mjs').then(m => 
         <string>--env-file=/path/to/scripts/.env</string>
         <string>--input-type=module</string>
         <string>-e</string>
-        <string>import('/path/to/scripts/dist/balance.mjs').then(m => m.runBalanceCheck({ notify: true }))</string>
+        <string>import('/path/to/scripts/dist/balance.mjs').then(m => m.runBalanceCheck({ bark: true }))</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>
@@ -216,12 +216,18 @@ node --env-file=.env --input-type=module -e "import('./dist/eva.mjs').then(m => 
 ```typescript
 import { runBalanceCheck } from 'scripts/balance'
 
-// 执行巡检：自动查询水费与电费，并通过 Bark / Gotify 推送通知
+// 执行巡检：自动查询水费与电费，并通过各渠道参数灵活启用与配置
+// - true 快捷启用：使用环境变量默认读取对应渠道配置
+// - 渠道配置对象：传入自定义配置覆盖（如 Bark 的 group/icon，Gotify 的 priority/appToken 等）
+// - false 或缺省：不启用该渠道
 const result = await runBalanceCheck({
   electricity: true,
   water: true,
-  notify: true, // 发送 Bark 通知
-  notifyGotify: true, // 亦可同时发送 Gotify 消息通知
+  bark: true, // 启用 Bark，使用默认 env 读取
+  gotify: {
+    // 启用 Gotify，使用自定义配置覆盖
+    priority: 8,
+  },
   notifyTitle: '🏠 每日水电费余额巡检',
 })
 
@@ -237,7 +243,6 @@ import { runBalanceCheck } from 'scripts/balance'
 // 仅查询电费，不发送通知
 const elecResult = await runBalanceCheck({
   water: false,
-  notify: false,
 })
 console.log(`当前电费余额: ${elecResult.electricity} 元`)
 
@@ -248,7 +253,6 @@ const waterResult = await runBalanceCheck({
     carno: 'custom_carno',
     tableId: 'custom_table_id',
   },
-  notify: false,
 })
 console.log(`当前水费余额: ${waterResult.water} 元`)
 ```
@@ -261,11 +265,11 @@ import { runEvaStockCheck } from 'scripts/eva'
 // 监控 Eva 车载机器人库存（默认同时监控极地白与高亮黑两款 SKU）
 // - 自动基于 unstorage 本地文件持久化记录对比上一次库存状态；
 // - 支持无货到有货（🎉 发现现货）、售罄（⚠️ 已售罄）、库存急剧变动（⚡ 快速变化）等多维度事件判定；
-// - 每个 SKU 独立分发 Bark 通知，动态标题与模板内容（带 date-fns 格式化时间戳），点击直达领克 App 选购；
-// - 默认 notifyPolicy 为 'onChange'（仅在状态变动或首次有货时推送），避免定时轮询高频骚扰。
+// - 每个 SKU 独立分发通知，支持各通知渠道独立配置（true 读取 env，obj 自定义配置）；
+// - 默认 policy 为 'onChange'（仅在状态变动或首次有货时推送），避免定时轮询高频骚扰。
 const result = await runEvaStockCheck({
-  notify: true, // 启用 Bark 通知
-  notifyGotify: true, // 启用 Gotify 消息推送
+  bark: true, // 启用 Bark（默认环境变量读取）
+  gotify: true, // 启用 Gotify（默认环境变量读取）
   notifyPolicy: 'onChange',
 })
 

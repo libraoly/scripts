@@ -29,7 +29,7 @@ describe('E2E: Balance Query Live Execution', () => {
       'should query both electricity and water balances via runBalanceCheck with real credentials',
       async () => {
         const startTime = Date.now() - 5000
-        const result = await runBalanceCheck({ notify: false })
+        const result = await runBalanceCheck()
 
         expect(result.success).toBe(true)
         expect(typeof result.electricity).toBe('string')
@@ -45,7 +45,6 @@ describe('E2E: Balance Query Live Execution', () => {
       const result = await runBalanceCheck({
         electricity: true,
         water: false,
-        notify: false,
       })
 
       expect(result.success).toBe(true)
@@ -59,7 +58,6 @@ describe('E2E: Balance Query Live Execution', () => {
       const result = await runBalanceCheck({
         electricity: false,
         water: true,
-        notify: false,
       })
 
       expect(result.success).toBe(true)
@@ -122,9 +120,9 @@ describe('E2E: Balance Query Live Execution', () => {
   })
 
   describe('Live Bark Notification Push', () => {
-    it.runIf(hasBarkEnv())('should send live push notification when BARK_DEVICE_KEY is set', async () => {
+    it.runIf(hasBarkEnv())('should send live push notification when BARK_DEVICE_KEYS is set', async () => {
       const result = await runBalanceCheck({
-        notify: true,
+        bark: true,
         notifyTitle: '水电费余额巡检测试',
       })
 

@@ -22,7 +22,6 @@ describe('E2E: Eva Stock Real API Integration', () => {
 
   it('should successfully run runEvaStockCheck for all default SKUs without notification', async () => {
     const result = await runEvaStockCheck({
-      notify: true,
       fetchOptions: {
         timeout: 15_000,
         retries: 2,
